@@ -142,6 +142,43 @@ async def delete_experience(request: Request, index: int):
     })
 
 
+@app.post("/profile/projects", response_class=HTMLResponse)
+async def add_project(
+    request: Request,
+    name: str = Form(...),
+    description: str = Form(""),
+    tech_stack_raw: str = Form(""),
+    highlights_raw: str = Form(""),
+    url: str = Form(""),
+):
+    profile = load_profile()
+    tech_stack = [t.strip() for t in tech_stack_raw.split(",") if t.strip()]
+    highlights = [
+        line.strip().lstrip("•–-").strip()
+        for line in highlights_raw.splitlines()
+        if line.strip()
+    ]
+    profile["projects"].append({
+        "name": name, "description": description,
+        "tech_stack": tech_stack, "highlights": highlights, "url": url,
+    })
+    save_profile(profile)
+    return templates.TemplateResponse(request, "partials/projects_list.html", context={
+        "projects": profile["projects"],
+    })
+
+
+@app.delete("/profile/projects/{index}", response_class=HTMLResponse)
+async def delete_project(request: Request, index: int):
+    profile = load_profile()
+    if 0 <= index < len(profile["projects"]):
+        profile["projects"].pop(index)
+        save_profile(profile)
+    return templates.TemplateResponse(request, "partials/projects_list.html", context={
+        "projects": profile["projects"],
+    })
+
+
 @app.get("/healthz")
 async def health():
     return {"status": "ok"}

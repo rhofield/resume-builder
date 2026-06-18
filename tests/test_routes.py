@@ -90,3 +90,29 @@ def test_delete_experience(client, mock_profile_path):
     assert response.status_code == 200
     saved = json.loads(mock_profile_path.read_text())
     assert len(saved["experience"]) == 0
+
+
+def test_add_project(client, mock_profile_path):
+    import json
+    response = client.post("/profile/projects", data={
+        "name": "My App",
+        "description": "A useful tool",
+        "tech_stack_raw": "Python, FastAPI, React",
+        "highlights_raw": "1000 users\nOpen source",
+        "url": "github.com/user/myapp",
+    })
+    assert response.status_code == 200
+    assert "My App" in response.text
+    saved = json.loads(mock_profile_path.read_text())
+    last = saved["projects"][-1]
+    assert last["name"] == "My App"
+    assert last["tech_stack"] == ["Python", "FastAPI", "React"]
+    assert last["highlights"] == ["1000 users", "Open source"]
+
+
+def test_delete_project(client, mock_profile_path):
+    import json
+    response = client.delete("/profile/projects/0")
+    assert response.status_code == 200
+    saved = json.loads(mock_profile_path.read_text())
+    assert len(saved["projects"]) == 0
