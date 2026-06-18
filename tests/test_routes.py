@@ -36,3 +36,28 @@ def test_update_static_info(client, mock_profile_path):
     saved = json.loads(mock_profile_path.read_text())
     assert saved["static"]["name"] == "Updated Name"
     assert saved["static"]["email"] == "new@example.com"
+
+
+def test_add_education(client, mock_profile_path):
+    import json
+    response = client.post("/profile/education", data={
+        "institution": "MIT",
+        "degree": "MSc",
+        "field": "Artificial Intelligence",
+        "start": "2020",
+        "end": "2022",
+        "details": "",
+    })
+    assert response.status_code == 200
+    assert "MIT" in response.text
+    saved = json.loads(mock_profile_path.read_text())
+    assert len(saved["education"]) == 2  # 1 from fixture + 1 new
+    assert saved["education"][-1]["institution"] == "MIT"
+
+
+def test_delete_education(client, mock_profile_path):
+    import json
+    response = client.delete("/profile/education/0")
+    assert response.status_code == 200
+    saved = json.loads(mock_profile_path.read_text())
+    assert len(saved["education"]) == 0

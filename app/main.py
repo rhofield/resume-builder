@@ -73,6 +73,38 @@ async def update_static(
     return RedirectResponse("/profile?tab=static&saved=1", status_code=303)
 
 
+@app.post("/profile/education", response_class=HTMLResponse)
+async def add_education(
+    request: Request,
+    institution: str = Form(...),
+    degree: str = Form(...),
+    field: str = Form(""),
+    start: str = Form(""),
+    end: str = Form(""),
+    details: str = Form(""),
+):
+    profile = load_profile()
+    profile["education"].append({
+        "institution": institution, "degree": degree, "field": field,
+        "start": start, "end": end, "details": details,
+    })
+    save_profile(profile)
+    return templates.TemplateResponse(request, "partials/education_list.html", context={
+        "education": profile["education"],
+    })
+
+
+@app.delete("/profile/education/{index}", response_class=HTMLResponse)
+async def delete_education(request: Request, index: int):
+    profile = load_profile()
+    if 0 <= index < len(profile["education"]):
+        profile["education"].pop(index)
+        save_profile(profile)
+    return templates.TemplateResponse(request, "partials/education_list.html", context={
+        "education": profile["education"],
+    })
+
+
 @app.get("/healthz")
 async def health():
     return {"status": "ok"}
