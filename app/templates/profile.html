@@ -1,0 +1,169 @@
+{% extends "base.html" %}
+{% block title %}Profile — Resume Builder{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <h1>Profile</h1>
+</div>
+
+{% if saved %}
+<div class="banner banner-info">Saved.</div>
+{% endif %}
+
+<div class="tabs">
+  <a href="/profile?tab=static"
+     class="tab {% if active_tab == 'static' %}active{% endif %}">Contact Info</a>
+  <a href="/profile?tab=education"
+     class="tab {% if active_tab == 'education' %}active{% endif %}">Education</a>
+  <a href="/profile?tab=experience"
+     class="tab {% if active_tab == 'experience' %}active{% endif %}">Experience</a>
+  <a href="/profile?tab=projects"
+     class="tab {% if active_tab == 'projects' %}active{% endif %}">Projects</a>
+</div>
+
+{% if active_tab == 'static' %}
+<div class="card">
+  <h2>Contact Information</h2>
+  <form method="POST" action="/profile/static">
+    <div class="form-grid">
+      <label>Full Name
+        <input type="text" name="name" value="{{ profile.static.name }}">
+      </label>
+      <label>Email
+        <input type="email" name="email" value="{{ profile.static.email }}">
+      </label>
+      <label>Phone
+        <input type="text" name="phone" value="{{ profile.static.phone }}">
+      </label>
+      <label>Location
+        <input type="text" name="location" value="{{ profile.static.location }}"
+               placeholder="London, UK">
+      </label>
+      <label>GitHub
+        <input type="text" name="github" value="{{ profile.static.github }}"
+               placeholder="github.com/username">
+      </label>
+      <label>LinkedIn
+        <input type="text" name="linkedin" value="{{ profile.static.linkedin }}"
+               placeholder="linkedin.com/in/username">
+      </label>
+    </div>
+    <button type="submit" class="btn btn-primary">Save</button>
+  </form>
+</div>
+{% endif %}
+
+{% if active_tab == 'education' %}
+<div class="card">
+  <h2>Education</h2>
+  <div id="education-list">
+    {% include "partials/education_list.html" %}
+  </div>
+  <h3>Add Entry</h3>
+  <form hx-post="/profile/education"
+        hx-target="#education-list"
+        hx-swap="innerHTML"
+        hx-on::after-request="this.reset()">
+    <div class="form-grid">
+      <label>Institution
+        <input type="text" name="institution" required placeholder="University of London">
+      </label>
+      <label>Degree
+        <input type="text" name="degree" required placeholder="BSc, MSc, PhD">
+      </label>
+      <label>Field of Study
+        <input type="text" name="field" placeholder="Computer Science">
+      </label>
+      <label>Start Year
+        <input type="text" name="start" placeholder="2018">
+      </label>
+      <label>End Year
+        <input type="text" name="end" placeholder="2021 or Present">
+      </label>
+    </div>
+    <label>Details
+      <textarea name="details" rows="2"
+                placeholder="First class honours, relevant modules, awards..."></textarea>
+    </label>
+    <button type="submit" class="btn btn-primary">Add</button>
+  </form>
+</div>
+{% endif %}
+
+{% if active_tab == 'experience' %}
+<div class="card">
+  <h2>Experience</h2>
+  <div id="experience-list">
+    {% include "partials/experience_list.html" %}
+  </div>
+  <h3>Add Entry</h3>
+  <form hx-post="/profile/experience"
+        hx-target="#experience-list"
+        hx-swap="innerHTML"
+        hx-on::after-request="this.reset()">
+    <div class="form-grid">
+      <label>Company
+        <input type="text" name="company" required>
+      </label>
+      <label>Job Title
+        <input type="text" name="title" required>
+      </label>
+      <label>Start
+        <input type="text" name="start" placeholder="Jan 2020">
+      </label>
+      <label>End
+        <input type="text" name="end" placeholder="Mar 2023 or Present">
+      </label>
+      <label>Location
+        <input type="text" name="location" placeholder="London / Remote">
+      </label>
+    </div>
+    <label>
+      Accomplishments
+      <small style="font-weight:400;color:#888"> — one per line, include numbers where possible</small>
+      <textarea name="accomplishments_raw" rows="6"
+                placeholder="Built REST API serving 50k req/day using Python and FastAPI&#10;Reduced CI build time from 20min to 4min by caching Docker layers&#10;Mentored 3 junior engineers"></textarea>
+    </label>
+    <button type="submit" class="btn btn-primary">Add</button>
+  </form>
+</div>
+{% endif %}
+
+{% if active_tab == 'projects' %}
+<div class="card">
+  <h2>Projects</h2>
+  <div id="projects-list">
+    {% include "partials/projects_list.html" %}
+  </div>
+  <h3>Add Entry</h3>
+  <form hx-post="/profile/projects"
+        hx-target="#projects-list"
+        hx-swap="innerHTML"
+        hx-on::after-request="this.reset()">
+    <div class="form-grid">
+      <label>Project Name
+        <input type="text" name="name" required>
+      </label>
+      <label>URL
+        <input type="text" name="url" placeholder="github.com/user/repo">
+      </label>
+      <label style="grid-column:1/-1">Tech Stack
+        <small style="font-weight:400;color:#888"> (comma-separated)</small>
+        <input type="text" name="tech_stack_raw" placeholder="Python, FastAPI, PostgreSQL">
+      </label>
+    </div>
+    <label>Description
+      <textarea name="description" rows="2"></textarea>
+    </label>
+    <label>
+      Highlights
+      <small style="font-weight:400;color:#888"> — one per line</small>
+      <textarea name="highlights_raw" rows="3"
+                placeholder="500 GitHub stars&#10;Used in production by 3 companies"></textarea>
+    </label>
+    <button type="submit" class="btn btn-primary">Add</button>
+  </form>
+</div>
+{% endif %}
+
+{% endblock %}

@@ -1,9 +1,9 @@
 from pathlib import Path
-from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse
+from fastapi import FastAPI, Request, Form
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from .profile import load_profile
+from .profile import load_profile, save_profile
 
 BASE_DIR = Path(__file__).parent
 OUTPUT_DIR = BASE_DIR.parent / "output"
@@ -43,6 +43,34 @@ async def dashboard(request: Request, setup: str = ""):
         "recent_outputs": get_recent_outputs(),
         "setup_banner": setup == "1",
     })
+
+
+@app.get("/profile", response_class=HTMLResponse)
+async def profile_page(request: Request, tab: str = "static", saved: str = ""):
+    profile = load_profile()
+    return templates.TemplateResponse(request, "profile.html", context={
+        "profile": profile,
+        "active_tab": tab,
+        "saved": saved == "1",
+    })
+
+
+@app.post("/profile/static")
+async def update_static(
+    name: str = Form(""),
+    email: str = Form(""),
+    phone: str = Form(""),
+    location: str = Form(""),
+    github: str = Form(""),
+    linkedin: str = Form(""),
+):
+    profile = load_profile()
+    profile["static"] = {
+        "name": name, "email": email, "phone": phone,
+        "location": location, "github": github, "linkedin": linkedin,
+    }
+    save_profile(profile)
+    return RedirectResponse("/profile?tab=static&saved=1", status_code=303)
 
 
 @app.get("/healthz")
