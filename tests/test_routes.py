@@ -116,3 +116,22 @@ def test_delete_project(client, mock_profile_path):
     assert response.status_code == 200
     saved = json.loads(mock_profile_path.read_text())
     assert len(saved["projects"]) == 0
+
+
+def test_generate_page_loads(client, mock_profile_path):
+    response = client.get("/generate")
+    assert response.status_code == 200
+    assert "Job Posting" in response.text
+    assert "Generate Resume" in response.text
+
+
+def test_generate_page_shows_templates(client, mock_profile_path, tmp_path, monkeypatch):
+    import app.main as main_module
+    fake_templates = tmp_path / "resume_templates"
+    fake_templates.mkdir()
+    (fake_templates / "classic.html").write_text("<!-- STATIC -->")
+    (fake_templates / "modern-sidebar.html").write_text("<!-- STATIC -->")
+    monkeypatch.setattr(main_module, "RESUME_TEMPLATES_DIR", fake_templates)
+    response = client.get("/generate")
+    assert "Classic" in response.text
+    assert "Modern Sidebar" in response.text

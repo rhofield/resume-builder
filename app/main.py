@@ -1,9 +1,12 @@
+from datetime import datetime
 from pathlib import Path
 from fastapi import FastAPI, Request, Form
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from .profile import load_profile, save_profile
+from .generator import generate_resume
+from .pdf import render_pdf
 
 BASE_DIR = Path(__file__).parent
 OUTPUT_DIR = BASE_DIR.parent / "output"
@@ -182,3 +185,71 @@ async def delete_project(request: Request, index: int):
 @app.get("/healthz")
 async def health():
     return {"status": "ok"}
+
+
+def get_resume_templates() -> list[dict]:
+    return [
+        {"id": p.stem, "name": p.stem.replace("-", " ").title()}
+        for p in sorted(RESUME_TEMPLATES_DIR.glob("*.html"))
+    ]
+
+
+@app.get("/generate", response_class=HTMLResponse)
+async def generate_page(request: Request):
+    profile = load_profile()
+    return templates.TemplateResponse(request, "generate.html", context={
+        "resume_templates": get_resume_templates(),
+        "has_experience": bool(profile["experience"]),
+    })
+
+
+@app.post("/generate", response_class=HTMLResponse)
+async def run_generate(
+    request: Request,
+    job_description: str = Form(...),
+    job_title: str = Form(""),
+    job_company: str = Form(""),
+    template_id: str = Form(...),
+):
+    profile = load_profile()
+    template_path = RESUME_TEMPLATES_DIR / f"{template_id}.html"
+
+    if not template_path.exists():
+        return templates.TemplateResponse(request, "partials/generate_result.html", context={
+            "error": f"Template '{template_id}' not found.",
+            "raw_output": "",
+            "pdf_url": None,
+            "html_url": None,
+            "pdf_ok": False,
+        })
+
+    template_html = template_path.read_text()
+    html, error = generate_resume(profile, job_description, template_html)
+
+    if not html:
+        return templates.TemplateResponse(request, "partials/generate_result.html", context={
+            "error": error,
+            "raw_output": error,
+            "pdf_url": None,
+            "html_url": None,
+            "pdf_ok": False,
+        })
+
+    company = (job_company.strip().replace(" ", "-")[:20] or "company").lower()
+    role = (job_title.strip().replace(" ", "-")[:20] or "resume").lower()
+    timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    stem = f"{company}-{role}-{timestamp}"
+
+    html_path = OUTPUT_DIR / f"{stem}.html"
+    html_path.write_text(html)
+
+    pdf_path = OUTPUT_DIR / f"{stem}.pdf"
+    pdf_ok = render_pdf(html, pdf_path)
+
+    return templates.TemplateResponse(request, "partials/generate_result.html", context={
+        "error": "",
+        "raw_output": "",
+        "pdf_url": f"/output/{stem}.pdf" if pdf_ok else None,
+        "html_url": f"/output/{stem}.html",
+        "pdf_ok": pdf_ok,
+    })

@@ -1,0 +1,27 @@
+{% if error %}
+<div class="card card-error">
+  <h3>Generation failed</h3>
+  <p>{{ error }}</p>
+  {% if raw_output and raw_output != error %}
+  <details>
+    <summary>Raw output (for debugging)</summary>
+    <pre>{{ raw_output }}</pre>
+  </details>
+  {% endif %}
+</div>
+{% else %}
+<div class="card card-success">
+  <h3>Resume ready!</h3>
+  <div class="button-row" style="margin-top:4px">
+    {% if pdf_ok %}
+    <a href="{{ pdf_url }}" download class="btn btn-primary">Download PDF</a>
+    {% else %}
+    <div class="banner banner-warning" style="width:100%">
+      PDF conversion failed. <a href="{{ html_url }}" target="_blank">Open HTML</a>
+      and use <kbd>Ctrl+P → Save as PDF</kbd>.
+    </div>
+    {% endif %}
+    <a href="{{ html_url }}" target="_blank" class="btn">Preview HTML</a>
+  </div>
+</div>
+{% endif %}

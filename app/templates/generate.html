@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Generate Resume — Resume Builder{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <h1>Generate Resume</h1>
+</div>
+
+{% if not has_experience %}
+<div class="banner banner-warning">
+  Your profile has no experience entries.
+  <a href="/profile?tab=experience">Add some</a> for better results.
+</div>
+{% endif %}
+
+<div class="generate-layout">
+
+  <div class="generate-left card">
+    <h2>Job Posting</h2>
+    <form hx-post="/generate"
+          hx-target="#generate-result"
+          hx-swap="innerHTML"
+          hx-indicator="#spinner"
+          hx-on::before-request="document.querySelector('button[type=submit]').disabled=true"
+          hx-on::after-request="document.querySelector('button[type=submit]').disabled=false">
+
+      <label>Job Title <small style="font-weight:400;color:#888">(optional — used for filename)</small>
+        <input type="text" name="job_title" placeholder="e.g. Senior Software Engineer">
+      </label>
+      <label>Company <small style="font-weight:400;color:#888">(optional — used for filename)</small>
+        <input type="text" name="job_company" placeholder="e.g. Acme Corp">
+      </label>
+      <label>Job Description <small style="font-weight:400;color:#888">(paste the full posting)</small>
+        <textarea name="job_description" rows="14" required
+                  placeholder="Paste the full job posting here..."></textarea>
+      </label>
+
+      <h2 style="margin:20px 0 12px">Template</h2>
+      <div class="template-grid">
+        {% for tmpl in resume_templates %}
+        <label class="template-card">
+          <input type="radio" name="template_id" value="{{ tmpl.id }}"
+                 {% if loop.first %}checked{% endif %}>
+          <span>{{ tmpl.name }}</span>
+        </label>
+        {% endfor %}
+      </div>
+
+      <button type="submit" class="btn btn-primary btn-lg">Generate Resume</button>
+    </form>
+
+    <div id="spinner" class="htmx-indicator spinner">
+      Generating your resume — this takes 15–30 seconds...
+    </div>
+  </div>
+
+  <div class="generate-right">
+    <div id="generate-result"></div>
+  </div>
+
+</div>
+{% endblock %}
