@@ -197,6 +197,8 @@ def get_resume_templates() -> list[dict]:
 @app.get("/generate", response_class=HTMLResponse)
 async def generate_page(request: Request):
     profile = load_profile()
+    if not profile["static"].get("name") and not profile["experience"]:
+        return RedirectResponse("/?setup=1", status_code=302)
     return templates.TemplateResponse(request, "generate.html", context={
         "resume_templates": get_resume_templates(),
         "has_experience": bool(profile["experience"]),

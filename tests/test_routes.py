@@ -135,3 +135,19 @@ def test_generate_page_shows_templates(client, mock_profile_path, tmp_path, monk
     response = client.get("/generate")
     assert "Classic" in response.text
     assert "Modern Sidebar" in response.text
+
+
+def test_first_run_redirects_to_profile_with_banner(tmp_path, monkeypatch):
+    from fastapi.testclient import TestClient
+    import app.main as main_module
+    import app.profile as profile_module
+
+    missing_path = tmp_path / "profile.json"
+    monkeypatch.setattr(profile_module, "PROFILE_PATH", missing_path)
+
+    client = TestClient(main_module.app)
+    response = client.get("/generate", follow_redirects=False)
+    assert response.status_code == 302
+    assert response.headers["location"].startswith("/")
+    # After redirect, profile.json should now exist (auto-scaffolded)
+    assert missing_path.exists()
