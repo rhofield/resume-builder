@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — Resume Builder{% endblock %}
+{% block content %}
+
+{% if setup_banner %}
+<div class="banner banner-info">
+  Welcome! Fill in your profile before generating a resume.
+  <a href="/profile">Get started →</a>
+</div>
+{% endif %}
+
+<div class="page-header">
+  <h1>Dashboard</h1>
+  <a href="/generate" class="btn btn-primary">Generate Resume</a>
+</div>
+
+<div class="card">
+  <h2>Profile completeness</h2>
+  <div class="progress-bar">
+    <div class="progress-fill" style="width: {{ completeness }}%"></div>
+  </div>
+  <p style="font-size:13px;color:#666;margin-top:6px">
+    {{ completeness }}% complete —
+    <a href="/profile">Edit profile</a>
+  </p>
+</div>
+
+<div class="card">
+  <h2>Quick add</h2>
+  <div class="button-row">
+    <a href="/profile?tab=experience" class="btn">+ Job</a>
+    <a href="/profile?tab=projects" class="btn">+ Project</a>
+    <a href="/profile?tab=education" class="btn">+ Education</a>
+  </div>
+</div>
+
+{% if recent_outputs %}
+<div class="card">
+  <h2>Recent generations</h2>
+  <ul class="output-list">
+    {% for item in recent_outputs %}
+    <li><a href="{{ item.url }}" target="_blank">{{ item.name }}</a></li>
+    {% endfor %}
+  </ul>
+</div>
+{% endif %}
+
+{% endblock %}
