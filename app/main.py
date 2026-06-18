@@ -1,3 +1,4 @@
+import re
 from datetime import datetime
 from pathlib import Path
 from fastapi import FastAPI, Request, Form
@@ -214,9 +215,8 @@ async def run_generate(
     template_id: str = Form(...),
 ):
     profile = load_profile()
-    template_path = RESUME_TEMPLATES_DIR / f"{template_id}.html"
-
-    if not template_path.exists():
+    valid_ids = {p.stem for p in RESUME_TEMPLATES_DIR.glob("*.html")}
+    if template_id not in valid_ids:
         return templates.TemplateResponse(request, "partials/generate_result.html", context={
             "error": f"Template '{template_id}' not found.",
             "raw_output": "",
@@ -224,6 +224,7 @@ async def run_generate(
             "html_url": None,
             "pdf_ok": False,
         })
+    template_path = RESUME_TEMPLATES_DIR / f"{template_id}.html"
 
     template_html = template_path.read_text()
     html, error = generate_resume(profile, job_description, template_html)
@@ -237,12 +238,18 @@ async def run_generate(
             "pdf_ok": False,
         })
 
-    company = (job_company.strip().replace(" ", "-")[:20] or "company").lower()
-    role = (job_title.strip().replace(" ", "-")[:20] or "resume").lower()
+    _safe = lambda s, d: (re.sub(r"[^a-z0-9-]", "", s.strip().lower().replace(" ", "-"))[:20] or d)
+    company = _safe(job_company, "company")
+    role = _safe(job_title, "resume")
     timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
     stem = f"{company}-{role}-{timestamp}"
 
     html_path = OUTPUT_DIR / f"{stem}.html"
+    if not html_path.resolve().is_relative_to(OUTPUT_DIR.resolve()):
+        return templates.TemplateResponse(request, "partials/generate_result.html", context={
+            "error": "Invalid output filename.",
+            "raw_output": "", "pdf_url": None, "html_url": None, "pdf_ok": False,
+        })
     html_path.write_text(html)
 
     pdf_path = OUTPUT_DIR / f"{stem}.pdf"
