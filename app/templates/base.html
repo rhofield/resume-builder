@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Resume Builder{% endblock %}</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="/static/htmx.min.js" defer></script>
+</head>
+<body>
+  <nav>
+    <a href="/" class="nav-logo">Resume Builder</a>
+    <div class="nav-links">
+      <a href="/" {% if request.url.path == "/" %}class="active"{% endif %}>Dashboard</a>
+      <a href="/profile" {% if request.url.path.startswith("/profile") %}class="active"{% endif %}>Profile</a>
+      <a href="/generate" {% if request.url.path == "/generate" %}class="active"{% endif %}>Generate</a>
+    </div>
+  </nav>
+  <main>
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>
