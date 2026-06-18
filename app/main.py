@@ -105,6 +105,43 @@ async def delete_education(request: Request, index: int):
     })
 
 
+@app.post("/profile/experience", response_class=HTMLResponse)
+async def add_experience(
+    request: Request,
+    company: str = Form(...),
+    title: str = Form(...),
+    start: str = Form(""),
+    end: str = Form(""),
+    location: str = Form(""),
+    accomplishments_raw: str = Form(""),
+):
+    profile = load_profile()
+    accomplishments = [
+        line.strip().lstrip("•–-").strip()
+        for line in accomplishments_raw.splitlines()
+        if line.strip()
+    ]
+    profile["experience"].append({
+        "company": company, "title": title, "start": start,
+        "end": end, "location": location, "accomplishments": accomplishments,
+    })
+    save_profile(profile)
+    return templates.TemplateResponse(request, "partials/experience_list.html", context={
+        "experience": profile["experience"],
+    })
+
+
+@app.delete("/profile/experience/{index}", response_class=HTMLResponse)
+async def delete_experience(request: Request, index: int):
+    profile = load_profile()
+    if 0 <= index < len(profile["experience"]):
+        profile["experience"].pop(index)
+        save_profile(profile)
+    return templates.TemplateResponse(request, "partials/experience_list.html", context={
+        "experience": profile["experience"],
+    })
+
+
 @app.get("/healthz")
 async def health():
     return {"status": "ok"}

@@ -61,3 +61,32 @@ def test_delete_education(client, mock_profile_path):
     assert response.status_code == 200
     saved = json.loads(mock_profile_path.read_text())
     assert len(saved["education"]) == 0
+
+
+def test_add_experience(client, mock_profile_path):
+    import json
+    response = client.post("/profile/experience", data={
+        "company": "New Corp",
+        "title": "Lead Engineer",
+        "start": "2023",
+        "end": "Present",
+        "location": "Remote",
+        "accomplishments_raw": "Led team of 5 engineers\nDelivered project 2 weeks ahead of schedule",
+    })
+    assert response.status_code == 200
+    assert "New Corp" in response.text
+    saved = json.loads(mock_profile_path.read_text())
+    last = saved["experience"][-1]
+    assert last["company"] == "New Corp"
+    assert last["accomplishments"] == [
+        "Led team of 5 engineers",
+        "Delivered project 2 weeks ahead of schedule",
+    ]
+
+
+def test_delete_experience(client, mock_profile_path):
+    import json
+    response = client.delete("/profile/experience/0")
+    assert response.status_code == 200
+    saved = json.loads(mock_profile_path.read_text())
+    assert len(saved["experience"]) == 0
