@@ -114,7 +114,7 @@ If `profile.json` is missing on first run, an empty scaffold is auto-created and
 
 ### `/profile` — Profile Editor
 - Tabbed sections: Static Info · Education · Experience · Projects
-- Each tab: sortable list of entries + inline add/edit/delete forms
+- Each tab: listed entries (ordered by insertion) + inline add/edit/delete forms
 - HTMX handles all mutations without full page reloads
 - All saves write directly to `profile.json`
 
