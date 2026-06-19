@@ -38,13 +38,13 @@ def extract_html(text: str) -> str:
 
 
 def generate_resume(
-    profile: dict, job_description: str, template_html: str
+    profile: dict, job_description: str, template_html: str, model: str = "sonnet"
 ) -> tuple[str, str]:
     """Returns (html, error). html is empty on failure; error is empty on success."""
     prompt = build_prompt(profile, job_description, template_html)
     try:
         result = subprocess.run(
-            ["claude", "-p"],
+            ["claude", "-m", model, "-p"],
             input=prompt,
             capture_output=True,
             text=True,
