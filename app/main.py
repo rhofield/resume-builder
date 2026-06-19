@@ -253,7 +253,7 @@ async def run_generate(
     html_path.write_text(html)
 
     pdf_path = OUTPUT_DIR / f"{stem}.pdf"
-    pdf_ok = render_pdf(html, pdf_path)
+    pdf_ok = await render_pdf(html, pdf_path)
 
     return templates.TemplateResponse(request, "partials/generate_result.html", context={
         "error": "",

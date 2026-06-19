@@ -1,4 +1,4 @@
-import asyncio
+import traceback
 from pathlib import Path
 
 
@@ -18,10 +18,11 @@ async def _render_async(html: str, output_path: Path) -> None:
         await browser.close()
 
 
-def render_pdf(html: str, output_path: Path) -> bool:
+async def render_pdf(html: str, output_path: Path) -> bool:
     """Returns True on success, False on any failure. Never raises."""
     try:
-        asyncio.run(_render_async(html, output_path))
+        await _render_async(html, output_path)
         return True
     except Exception:
+        traceback.print_exc()
         return False
