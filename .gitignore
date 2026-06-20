@@ -6,3 +6,4 @@ profile.json
 output/*.pdf
 output/*.html
 .superpowers/
+.claude/

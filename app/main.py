@@ -56,6 +56,9 @@ async def profile_page(request: Request, tab: str = "static", saved: str = ""):
         "profile": profile,
         "active_tab": tab,
         "saved": saved == "1",
+        "education": profile["education"],
+        "experience": profile["experience"],
+        "projects": profile["projects"],
     })
 
 
