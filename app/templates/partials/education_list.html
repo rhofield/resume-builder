@@ -1,17 +1,6 @@
 {% for edu in education %}
-<div class="entry">
-  <div class="entry-main">
-    <strong>{{ edu.degree }}{% if edu.field %} in {{ edu.field }}{% endif %}</strong>
-    — {{ edu.institution }}
-    {% if edu.start %}<span class="entry-date">{{ edu.start }}{% if edu.end %} – {{ edu.end }}{% endif %}</span>{% endif %}
-  </div>
-  {% if edu.details %}<p class="entry-details">{{ edu.details }}</p>{% endif %}
-  <button class="btn btn-sm btn-danger" style="margin-top:8px"
-          hx-delete="/profile/education/{{ loop.index0 }}"
-          hx-target="#education-list"
-          hx-swap="innerHTML"
-          hx-confirm="Delete this education entry?">Delete</button>
-</div>
+{% set index = loop.index0 %}
+{% include "partials/education_entry.html" %}
 {% else %}
 <p class="empty-state">No education entries yet.</p>
 {% endfor %}

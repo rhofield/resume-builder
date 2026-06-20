@@ -196,3 +196,47 @@ def test_generate_passes_valid_model_to_generator(client, mock_profile_path, tmp
         })
 
     assert mock_generate.call_args[0][3] == "opus"
+
+
+def test_view_education(client, mock_profile_path):
+    response = client.get("/profile/education/0")
+    assert response.status_code == 200
+    assert "University of London" in response.text
+    assert 'hx-get="/profile/education/0/edit"' in response.text
+
+
+def test_view_education_not_found(client, mock_profile_path):
+    response = client.get("/profile/education/99")
+    assert response.status_code == 404
+
+
+def test_edit_education_form(client, mock_profile_path):
+    response = client.get("/profile/education/0/edit")
+    assert response.status_code == 200
+    assert 'value="University of London"' in response.text
+    assert 'hx-put="/profile/education/0"' in response.text
+
+
+def test_update_education(client, mock_profile_path):
+    import json
+    response = client.put("/profile/education/0", data={
+        "institution": "Updated University",
+        "degree": "MSc",
+        "field": "Data Science",
+        "start": "2017",
+        "end": "2020",
+        "details": "Distinction",
+    })
+    assert response.status_code == 200
+    assert "Updated University" in response.text
+    saved = json.loads(mock_profile_path.read_text())
+    assert saved["education"][0]["institution"] == "Updated University"
+    assert saved["education"][0]["degree"] == "MSc"
+
+
+def test_update_education_not_found(client, mock_profile_path):
+    response = client.put("/profile/education/99", data={
+        "institution": "X", "degree": "Y", "field": "",
+        "start": "", "end": "", "details": "",
+    })
+    assert response.status_code == 404

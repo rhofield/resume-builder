@@ -1,7 +1,7 @@
 import re
 from datetime import datetime
 from pathlib import Path
-from fastapi import FastAPI, Request, Form
+from fastapi import FastAPI, Request, Form, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -106,6 +106,53 @@ async def delete_education(request: Request, index: int):
         save_profile(profile)
     return templates.TemplateResponse(request, "partials/education_list.html", context={
         "education": profile["education"],
+    })
+
+
+@app.get("/profile/education/{index}", response_class=HTMLResponse)
+async def view_education(request: Request, index: int):
+    profile = load_profile()
+    if not 0 <= index < len(profile["education"]):
+        raise HTTPException(status_code=404, detail="Education entry not found")
+    return templates.TemplateResponse(request, "partials/education_entry.html", context={
+        "edu": profile["education"][index],
+        "index": index,
+    })
+
+
+@app.get("/profile/education/{index}/edit", response_class=HTMLResponse)
+async def edit_education_form(request: Request, index: int):
+    profile = load_profile()
+    if not 0 <= index < len(profile["education"]):
+        raise HTTPException(status_code=404, detail="Education entry not found")
+    return templates.TemplateResponse(request, "partials/education_entry_edit.html", context={
+        "edu": profile["education"][index],
+        "index": index,
+    })
+
+
+@app.put("/profile/education/{index}", response_class=HTMLResponse)
+async def update_education(
+    request: Request,
+    index: int,
+    institution: str = Form(...),
+    degree: str = Form(...),
+    field: str = Form(""),
+    start: str = Form(""),
+    end: str = Form(""),
+    details: str = Form(""),
+):
+    profile = load_profile()
+    if not 0 <= index < len(profile["education"]):
+        raise HTTPException(status_code=404, detail="Education entry not found")
+    profile["education"][index] = {
+        "institution": institution, "degree": degree, "field": field,
+        "start": start, "end": end, "details": details,
+    }
+    save_profile(profile)
+    return templates.TemplateResponse(request, "partials/education_entry.html", context={
+        "edu": profile["education"][index],
+        "index": index,
     })
 
 
