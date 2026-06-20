@@ -1,0 +1,28 @@
+<div class="entry">
+  <div class="entry-main">
+    <strong>{{ proj.name }}</strong>
+    {% if proj.url %}<a href="{{ proj.url }}" target="_blank" class="entry-url">{{ proj.url }}</a>{% endif %}
+  </div>
+  {% if proj.description %}<p class="entry-details">{{ proj.description }}</p>{% endif %}
+  {% if proj.tech_stack %}
+  <div class="entry-tags">
+    {% for t in proj.tech_stack %}<span class="tag">{{ t }}</span>{% endfor %}
+  </div>
+  {% endif %}
+  {% if proj.highlights %}
+  <ul class="accomplishments">
+    {% for h in proj.highlights %}<li>{{ h }}</li>{% endfor %}
+  </ul>
+  {% endif %}
+  <div style="margin-top:8px">
+    <button class="btn btn-sm"
+            hx-get="/profile/projects/{{ index }}/edit"
+            hx-target="closest .entry"
+            hx-swap="outerHTML">Edit</button>
+    <button class="btn btn-sm btn-danger"
+            hx-delete="/profile/projects/{{ index }}"
+            hx-target="#projects-list"
+            hx-swap="innerHTML"
+            hx-confirm="Delete this project?">Delete</button>
+  </div>
+</div>

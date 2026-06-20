@@ -282,6 +282,58 @@ async def delete_project(request: Request, index: int):
     })
 
 
+@app.get("/profile/projects/{index}", response_class=HTMLResponse)
+async def view_project(request: Request, index: int):
+    profile = load_profile()
+    if not 0 <= index < len(profile["projects"]):
+        raise HTTPException(status_code=404, detail="Project not found")
+    return templates.TemplateResponse(request, "partials/projects_entry.html", context={
+        "proj": profile["projects"][index],
+        "index": index,
+    })
+
+
+@app.get("/profile/projects/{index}/edit", response_class=HTMLResponse)
+async def edit_project_form(request: Request, index: int):
+    profile = load_profile()
+    if not 0 <= index < len(profile["projects"]):
+        raise HTTPException(status_code=404, detail="Project not found")
+    return templates.TemplateResponse(request, "partials/projects_entry_edit.html", context={
+        "proj": profile["projects"][index],
+        "index": index,
+    })
+
+
+@app.put("/profile/projects/{index}", response_class=HTMLResponse)
+async def update_project(
+    request: Request,
+    index: int,
+    name: str = Form(...),
+    description: str = Form(""),
+    tech_stack_raw: str = Form(""),
+    highlights_raw: str = Form(""),
+    url: str = Form(""),
+):
+    profile = load_profile()
+    if not 0 <= index < len(profile["projects"]):
+        raise HTTPException(status_code=404, detail="Project not found")
+    tech_stack = [t.strip() for t in tech_stack_raw.split(",") if t.strip()]
+    highlights = [
+        line.strip().lstrip("•–-").strip()
+        for line in highlights_raw.splitlines()
+        if line.strip()
+    ]
+    profile["projects"][index] = {
+        "name": name, "description": description,
+        "tech_stack": tech_stack, "highlights": highlights, "url": url,
+    }
+    save_profile(profile)
+    return templates.TemplateResponse(request, "partials/projects_entry.html", context={
+        "proj": profile["projects"][index],
+        "index": index,
+    })
+
+
 @app.get("/healthz")
 async def health():
     return {"status": "ok"}

@@ -275,3 +275,35 @@ def test_update_experience_not_found(client, mock_profile_path):
         "location": "", "accomplishments_raw": "",
     })
     assert response.status_code == 404
+
+
+def test_edit_project_form(client, mock_profile_path):
+    response = client.get("/profile/projects/0/edit")
+    assert response.status_code == 200
+    assert 'value="CLI Tool"' in response.text
+    assert 'value="Python, Click"' in response.text
+
+
+def test_update_project(client, mock_profile_path):
+    import json
+    response = client.put("/profile/projects/0", data={
+        "name": "Updated Tool",
+        "description": "Now does more",
+        "tech_stack_raw": "Python, Click, Rich",
+        "highlights_raw": "1000 stars\nFeatured on HN",
+        "url": "github.com/janesmith/updated-tool",
+    })
+    assert response.status_code == 200
+    assert "Updated Tool" in response.text
+    saved = json.loads(mock_profile_path.read_text())
+    assert saved["projects"][0]["name"] == "Updated Tool"
+    assert saved["projects"][0]["tech_stack"] == ["Python", "Click", "Rich"]
+    assert saved["projects"][0]["highlights"] == ["1000 stars", "Featured on HN"]
+
+
+def test_update_project_not_found(client, mock_profile_path):
+    response = client.put("/profile/projects/99", data={
+        "name": "X", "description": "", "tech_stack_raw": "",
+        "highlights_raw": "", "url": "",
+    })
+    assert response.status_code == 404
