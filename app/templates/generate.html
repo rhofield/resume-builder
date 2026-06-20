@@ -35,6 +35,14 @@
                   placeholder="Paste the full job posting here..."></textarea>
       </label>
 
+      <label>Model <small style="font-weight:400;color:#888">(which Claude model generates this resume)</small>
+        <select name="model">
+          <option value="sonnet" selected>Sonnet</option>
+          <option value="opus">Opus</option>
+          <option value="haiku">Haiku</option>
+        </select>
+      </label>
+
       <h2 style="margin:20px 0 12px">Template</h2>
       <div class="template-grid">
         {% for tmpl in resume_templates %}

@@ -123,6 +123,10 @@ def test_generate_page_loads(client, mock_profile_path):
     assert response.status_code == 200
     assert "Job Posting" in response.text
     assert "Generate Resume" in response.text
+    assert 'name="model"' in response.text
+    assert '<option value="sonnet" selected>' in response.text
+    assert '<option value="opus">' in response.text
+    assert '<option value="haiku">' in response.text
 
 
 def test_generate_page_shows_templates(client, mock_profile_path, tmp_path, monkeypatch):
@@ -151,3 +155,44 @@ def test_first_run_redirects_to_profile_with_banner(tmp_path, monkeypatch):
     assert response.headers["location"].startswith("/")
     # After redirect, profile.json should now exist (auto-scaffolded)
     assert missing_path.exists()
+
+
+def test_generate_rejects_invalid_model(client, mock_profile_path, tmp_path, monkeypatch):
+    import app.main as main_module
+    fake_templates = tmp_path / "resume_templates"
+    fake_templates.mkdir()
+    (fake_templates / "classic.html").write_text("<!-- STATIC -->")
+    monkeypatch.setattr(main_module, "RESUME_TEMPLATES_DIR", fake_templates)
+
+    response = client.post("/generate", data={
+        "job_description": "Some job",
+        "template_id": "classic",
+        "model": "gpt-5",
+    })
+    assert response.status_code == 200
+    assert "gpt-5" in response.text
+    assert "not" in response.text.lower()
+
+
+def test_generate_passes_valid_model_to_generator(client, mock_profile_path, tmp_path, monkeypatch):
+    import app.main as main_module
+    from unittest.mock import patch
+
+    fake_templates = tmp_path / "resume_templates"
+    fake_templates.mkdir()
+    (fake_templates / "classic.html").write_text("<!-- STATIC -->")
+    monkeypatch.setattr(main_module, "RESUME_TEMPLATES_DIR", fake_templates)
+    monkeypatch.setattr(main_module, "OUTPUT_DIR", tmp_path / "output")
+    (tmp_path / "output").mkdir()
+
+    with patch(
+        "app.main.generate_resume",
+        return_value=("<!DOCTYPE html><html><body>x</body></html>", ""),
+    ) as mock_generate, patch("app.main.render_pdf", return_value=False):
+        client.post("/generate", data={
+            "job_description": "Some job",
+            "template_id": "classic",
+            "model": "opus",
+        })
+
+    assert mock_generate.call_args[0][3] == "opus"

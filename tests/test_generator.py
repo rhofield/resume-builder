@@ -92,3 +92,25 @@ def test_generate_resume_non_html_output(sample_profile):
         html, error = generate_resume(sample_profile, "Python dev role", "<html></html>")
     assert html == ""
     assert "I'm sorry" in error
+
+
+def test_generate_resume_passes_model_flag(sample_profile):
+    mock_result = MagicMock()
+    mock_result.returncode = 0
+    mock_result.stdout = "<!DOCTYPE html><html><body>Resume content</body></html>"
+    mock_result.stderr = ""
+    with patch("app.generator.subprocess.run", return_value=mock_result) as mock_run:
+        generate_resume(sample_profile, "Python dev role", "<html></html>", model="opus")
+    args = mock_run.call_args[0][0]
+    assert args == ["claude", "-m", "opus", "-p"]
+
+
+def test_generate_resume_defaults_to_sonnet(sample_profile):
+    mock_result = MagicMock()
+    mock_result.returncode = 0
+    mock_result.stdout = "<!DOCTYPE html><html><body>Resume content</body></html>"
+    mock_result.stderr = ""
+    with patch("app.generator.subprocess.run", return_value=mock_result) as mock_run:
+        generate_resume(sample_profile, "Python dev role", "<html></html>")
+    args = mock_run.call_args[0][0]
+    assert args == ["claude", "-m", "sonnet", "-p"]

@@ -213,6 +213,7 @@ async def run_generate(
     job_title: str = Form(""),
     job_company: str = Form(""),
     template_id: str = Form(...),
+    model: str = Form("sonnet"),
 ):
     profile = load_profile()
     valid_ids = {p.stem for p in RESUME_TEMPLATES_DIR.glob("*.html")}
@@ -224,10 +225,19 @@ async def run_generate(
             "html_url": None,
             "pdf_ok": False,
         })
+    valid_models = {"sonnet", "opus", "haiku"}
+    if model not in valid_models:
+        return templates.TemplateResponse(request, "partials/generate_result.html", context={
+            "error": f"Model '{model}' not recognized.",
+            "raw_output": "",
+            "pdf_url": None,
+            "html_url": None,
+            "pdf_ok": False,
+        })
     template_path = RESUME_TEMPLATES_DIR / f"{template_id}.html"
 
     template_html = template_path.read_text()
-    html, error = generate_resume(profile, job_description, template_html)
+    html, error = generate_resume(profile, job_description, template_html, model)
 
     if not html:
         return templates.TemplateResponse(request, "partials/generate_result.html", context={
