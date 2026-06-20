@@ -240,3 +240,38 @@ def test_update_education_not_found(client, mock_profile_path):
         "start": "", "end": "", "details": "",
     })
     assert response.status_code == 404
+
+
+def test_edit_experience_form(client, mock_profile_path):
+    response = client.get("/profile/experience/0/edit")
+    assert response.status_code == 200
+    assert 'value="Tech Corp"' in response.text
+    assert "Built REST API serving 10k requests/day using Python and FastAPI" in response.text
+
+
+def test_update_experience(client, mock_profile_path):
+    import json
+    response = client.put("/profile/experience/0", data={
+        "company": "Updated Corp",
+        "title": "Senior Engineer",
+        "start": "2019",
+        "end": "Present",
+        "location": "Remote",
+        "accomplishments_raw": "Shipped v2 of the platform\nMentored 2 engineers",
+    })
+    assert response.status_code == 200
+    assert "Updated Corp" in response.text
+    saved = json.loads(mock_profile_path.read_text())
+    assert saved["experience"][0]["company"] == "Updated Corp"
+    assert saved["experience"][0]["accomplishments"] == [
+        "Shipped v2 of the platform",
+        "Mentored 2 engineers",
+    ]
+
+
+def test_update_experience_not_found(client, mock_profile_path):
+    response = client.put("/profile/experience/99", data={
+        "company": "X", "title": "Y", "start": "", "end": "",
+        "location": "", "accomplishments_raw": "",
+    })
+    assert response.status_code == 404

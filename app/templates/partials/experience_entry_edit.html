@@ -1,0 +1,35 @@
+<div class="entry">
+  <form hx-put="/profile/experience/{{ index }}"
+        hx-target="closest .entry"
+        hx-swap="outerHTML">
+    <div class="form-grid">
+      <label>Company
+        <input type="text" name="company" required value="{{ exp.company }}">
+      </label>
+      <label>Job Title
+        <input type="text" name="title" required value="{{ exp.title }}">
+      </label>
+      <label>Start
+        <input type="text" name="start" value="{{ exp.start }}">
+      </label>
+      <label>End
+        <input type="text" name="end" value="{{ exp.end }}">
+      </label>
+      <label>Location
+        <input type="text" name="location" value="{{ exp.location }}">
+      </label>
+    </div>
+    <label>
+      Accomplishments
+      <small style="font-weight:400;color:#888"> — one per line</small>
+      <textarea name="accomplishments_raw" rows="6">{{ exp.accomplishments|join("\n") }}</textarea>
+    </label>
+    <div style="margin-top:8px">
+      <button type="submit" class="btn btn-sm btn-primary">Save</button>
+      <button type="button" class="btn btn-sm"
+              hx-get="/profile/experience/{{ index }}"
+              hx-target="closest .entry"
+              hx-swap="outerHTML">Cancel</button>
+    </div>
+  </form>
+</div>

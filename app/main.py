@@ -193,6 +193,58 @@ async def delete_experience(request: Request, index: int):
     })
 
 
+@app.get("/profile/experience/{index}", response_class=HTMLResponse)
+async def view_experience(request: Request, index: int):
+    profile = load_profile()
+    if not 0 <= index < len(profile["experience"]):
+        raise HTTPException(status_code=404, detail="Experience entry not found")
+    return templates.TemplateResponse(request, "partials/experience_entry.html", context={
+        "exp": profile["experience"][index],
+        "index": index,
+    })
+
+
+@app.get("/profile/experience/{index}/edit", response_class=HTMLResponse)
+async def edit_experience_form(request: Request, index: int):
+    profile = load_profile()
+    if not 0 <= index < len(profile["experience"]):
+        raise HTTPException(status_code=404, detail="Experience entry not found")
+    return templates.TemplateResponse(request, "partials/experience_entry_edit.html", context={
+        "exp": profile["experience"][index],
+        "index": index,
+    })
+
+
+@app.put("/profile/experience/{index}", response_class=HTMLResponse)
+async def update_experience(
+    request: Request,
+    index: int,
+    company: str = Form(...),
+    title: str = Form(...),
+    start: str = Form(""),
+    end: str = Form(""),
+    location: str = Form(""),
+    accomplishments_raw: str = Form(""),
+):
+    profile = load_profile()
+    if not 0 <= index < len(profile["experience"]):
+        raise HTTPException(status_code=404, detail="Experience entry not found")
+    accomplishments = [
+        line.strip().lstrip("•–-").strip()
+        for line in accomplishments_raw.splitlines()
+        if line.strip()
+    ]
+    profile["experience"][index] = {
+        "company": company, "title": title, "start": start,
+        "end": end, "location": location, "accomplishments": accomplishments,
+    }
+    save_profile(profile)
+    return templates.TemplateResponse(request, "partials/experience_entry.html", context={
+        "exp": profile["experience"][index],
+        "index": index,
+    })
+
+
 @app.post("/profile/projects", response_class=HTMLResponse)
 async def add_project(
     request: Request,
