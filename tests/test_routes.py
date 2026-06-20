@@ -123,6 +123,10 @@ def test_generate_page_loads(client, mock_profile_path):
     assert response.status_code == 200
     assert "Job Posting" in response.text
     assert "Generate Resume" in response.text
+    assert 'name="model"' in response.text
+    assert '<option value="sonnet" selected>' in response.text
+    assert '<option value="opus">' in response.text
+    assert '<option value="haiku">' in response.text
 
 
 def test_generate_page_shows_templates(client, mock_profile_path, tmp_path, monkeypatch):
