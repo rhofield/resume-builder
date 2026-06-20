@@ -242,6 +242,18 @@ def test_update_education_not_found(client, mock_profile_path):
     assert response.status_code == 404
 
 
+def test_view_experience(client, mock_profile_path):
+    response = client.get("/profile/experience/0")
+    assert response.status_code == 200
+    assert "Tech Corp" in response.text
+    assert 'hx-get="/profile/experience/0/edit"' in response.text
+
+
+def test_view_experience_not_found(client, mock_profile_path):
+    response = client.get("/profile/experience/99")
+    assert response.status_code == 404
+
+
 def test_edit_experience_form(client, mock_profile_path):
     response = client.get("/profile/experience/0/edit")
     assert response.status_code == 200
@@ -274,6 +286,18 @@ def test_update_experience_not_found(client, mock_profile_path):
         "company": "X", "title": "Y", "start": "", "end": "",
         "location": "", "accomplishments_raw": "",
     })
+    assert response.status_code == 404
+
+
+def test_view_project(client, mock_profile_path):
+    response = client.get("/profile/projects/0")
+    assert response.status_code == 200
+    assert "CLI Tool" in response.text
+    assert 'hx-get="/profile/projects/0/edit"' in response.text
+
+
+def test_view_project_not_found(client, mock_profile_path):
+    response = client.get("/profile/projects/99")
     assert response.status_code == 404
 
 
