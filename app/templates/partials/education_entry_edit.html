@@ -1,0 +1,33 @@
+<div class="entry">
+  <form hx-put="/profile/education/{{ index }}"
+        hx-target="closest .entry"
+        hx-swap="outerHTML">
+    <div class="form-grid">
+      <label>Institution
+        <input type="text" name="institution" required value="{{ edu.institution }}">
+      </label>
+      <label>Degree
+        <input type="text" name="degree" required value="{{ edu.degree }}">
+      </label>
+      <label>Field of Study
+        <input type="text" name="field" value="{{ edu.field }}">
+      </label>
+      <label>Start Year
+        <input type="text" name="start" value="{{ edu.start }}">
+      </label>
+      <label>End Year
+        <input type="text" name="end" value="{{ edu.end }}">
+      </label>
+    </div>
+    <label>Details
+      <textarea name="details" rows="2">{{ edu.details }}</textarea>
+    </label>
+    <div style="margin-top:8px">
+      <button type="submit" class="btn btn-sm btn-primary">Save</button>
+      <button type="button" class="btn btn-sm"
+              hx-get="/profile/education/{{ index }}"
+              hx-target="closest .entry"
+              hx-swap="outerHTML">Cancel</button>
+    </div>
+  </form>
+</div>

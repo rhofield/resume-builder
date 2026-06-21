@@ -1,7 +1,7 @@
 import re
 from datetime import datetime
 from pathlib import Path
-from fastapi import FastAPI, Request, Form
+from fastapi import FastAPI, Request, Form, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -112,6 +112,53 @@ async def delete_education(request: Request, index: int):
     })
 
 
+@app.get("/profile/education/{index}", response_class=HTMLResponse)
+async def view_education(request: Request, index: int):
+    profile = load_profile()
+    if not 0 <= index < len(profile["education"]):
+        raise HTTPException(status_code=404, detail="Education entry not found")
+    return templates.TemplateResponse(request, "partials/education_entry.html", context={
+        "edu": profile["education"][index],
+        "index": index,
+    })
+
+
+@app.get("/profile/education/{index}/edit", response_class=HTMLResponse)
+async def edit_education_form(request: Request, index: int):
+    profile = load_profile()
+    if not 0 <= index < len(profile["education"]):
+        raise HTTPException(status_code=404, detail="Education entry not found")
+    return templates.TemplateResponse(request, "partials/education_entry_edit.html", context={
+        "edu": profile["education"][index],
+        "index": index,
+    })
+
+
+@app.put("/profile/education/{index}", response_class=HTMLResponse)
+async def update_education(
+    request: Request,
+    index: int,
+    institution: str = Form(...),
+    degree: str = Form(...),
+    field: str = Form(""),
+    start: str = Form(""),
+    end: str = Form(""),
+    details: str = Form(""),
+):
+    profile = load_profile()
+    if not 0 <= index < len(profile["education"]):
+        raise HTTPException(status_code=404, detail="Education entry not found")
+    profile["education"][index] = {
+        "institution": institution, "degree": degree, "field": field,
+        "start": start, "end": end, "details": details,
+    }
+    save_profile(profile)
+    return templates.TemplateResponse(request, "partials/education_entry.html", context={
+        "edu": profile["education"][index],
+        "index": index,
+    })
+
+
 @app.post("/profile/experience", response_class=HTMLResponse)
 async def add_experience(
     request: Request,
@@ -149,6 +196,58 @@ async def delete_experience(request: Request, index: int):
     })
 
 
+@app.get("/profile/experience/{index}", response_class=HTMLResponse)
+async def view_experience(request: Request, index: int):
+    profile = load_profile()
+    if not 0 <= index < len(profile["experience"]):
+        raise HTTPException(status_code=404, detail="Experience entry not found")
+    return templates.TemplateResponse(request, "partials/experience_entry.html", context={
+        "exp": profile["experience"][index],
+        "index": index,
+    })
+
+
+@app.get("/profile/experience/{index}/edit", response_class=HTMLResponse)
+async def edit_experience_form(request: Request, index: int):
+    profile = load_profile()
+    if not 0 <= index < len(profile["experience"]):
+        raise HTTPException(status_code=404, detail="Experience entry not found")
+    return templates.TemplateResponse(request, "partials/experience_entry_edit.html", context={
+        "exp": profile["experience"][index],
+        "index": index,
+    })
+
+
+@app.put("/profile/experience/{index}", response_class=HTMLResponse)
+async def update_experience(
+    request: Request,
+    index: int,
+    company: str = Form(...),
+    title: str = Form(...),
+    start: str = Form(""),
+    end: str = Form(""),
+    location: str = Form(""),
+    accomplishments_raw: str = Form(""),
+):
+    profile = load_profile()
+    if not 0 <= index < len(profile["experience"]):
+        raise HTTPException(status_code=404, detail="Experience entry not found")
+    accomplishments = [
+        line.strip().lstrip("•–-").strip()
+        for line in accomplishments_raw.splitlines()
+        if line.strip()
+    ]
+    profile["experience"][index] = {
+        "company": company, "title": title, "start": start,
+        "end": end, "location": location, "accomplishments": accomplishments,
+    }
+    save_profile(profile)
+    return templates.TemplateResponse(request, "partials/experience_entry.html", context={
+        "exp": profile["experience"][index],
+        "index": index,
+    })
+
+
 @app.post("/profile/projects", response_class=HTMLResponse)
 async def add_project(
     request: Request,
@@ -183,6 +282,58 @@ async def delete_project(request: Request, index: int):
         save_profile(profile)
     return templates.TemplateResponse(request, "partials/projects_list.html", context={
         "projects": profile["projects"],
+    })
+
+
+@app.get("/profile/projects/{index}", response_class=HTMLResponse)
+async def view_project(request: Request, index: int):
+    profile = load_profile()
+    if not 0 <= index < len(profile["projects"]):
+        raise HTTPException(status_code=404, detail="Project not found")
+    return templates.TemplateResponse(request, "partials/projects_entry.html", context={
+        "proj": profile["projects"][index],
+        "index": index,
+    })
+
+
+@app.get("/profile/projects/{index}/edit", response_class=HTMLResponse)
+async def edit_project_form(request: Request, index: int):
+    profile = load_profile()
+    if not 0 <= index < len(profile["projects"]):
+        raise HTTPException(status_code=404, detail="Project not found")
+    return templates.TemplateResponse(request, "partials/projects_entry_edit.html", context={
+        "proj": profile["projects"][index],
+        "index": index,
+    })
+
+
+@app.put("/profile/projects/{index}", response_class=HTMLResponse)
+async def update_project(
+    request: Request,
+    index: int,
+    name: str = Form(...),
+    description: str = Form(""),
+    tech_stack_raw: str = Form(""),
+    highlights_raw: str = Form(""),
+    url: str = Form(""),
+):
+    profile = load_profile()
+    if not 0 <= index < len(profile["projects"]):
+        raise HTTPException(status_code=404, detail="Project not found")
+    tech_stack = [t.strip() for t in tech_stack_raw.split(",") if t.strip()]
+    highlights = [
+        line.strip().lstrip("•–-").strip()
+        for line in highlights_raw.splitlines()
+        if line.strip()
+    ]
+    profile["projects"][index] = {
+        "name": name, "description": description,
+        "tech_stack": tech_stack, "highlights": highlights, "url": url,
+    }
+    save_profile(profile)
+    return templates.TemplateResponse(request, "partials/projects_entry.html", context={
+        "proj": profile["projects"][index],
+        "index": index,
     })
 
 

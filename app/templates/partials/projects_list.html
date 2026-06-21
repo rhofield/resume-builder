@@ -1,26 +1,6 @@
 {% for proj in projects %}
-<div class="entry">
-  <div class="entry-main">
-    <strong>{{ proj.name }}</strong>
-    {% if proj.url %}<a href="{{ proj.url }}" target="_blank" class="entry-url">{{ proj.url }}</a>{% endif %}
-  </div>
-  {% if proj.description %}<p class="entry-details">{{ proj.description }}</p>{% endif %}
-  {% if proj.tech_stack %}
-  <div class="entry-tags">
-    {% for t in proj.tech_stack %}<span class="tag">{{ t }}</span>{% endfor %}
-  </div>
-  {% endif %}
-  {% if proj.highlights %}
-  <ul class="accomplishments">
-    {% for h in proj.highlights %}<li>{{ h }}</li>{% endfor %}
-  </ul>
-  {% endif %}
-  <button class="btn btn-sm btn-danger" style="margin-top:8px"
-          hx-delete="/profile/projects/{{ loop.index0 }}"
-          hx-target="#projects-list"
-          hx-swap="innerHTML"
-          hx-confirm="Delete this project?">Delete</button>
-</div>
+{% set index = loop.index0 %}
+{% include "partials/projects_entry.html" %}
 {% else %}
 <p class="empty-state">No projects yet.</p>
 {% endfor %}

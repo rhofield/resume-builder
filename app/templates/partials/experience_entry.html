@@ -1,0 +1,23 @@
+<div class="entry">
+  <div class="entry-main">
+    <strong>{{ exp.title }}</strong> at {{ exp.company }}
+    <span class="entry-date">{{ exp.start }}{% if exp.end %} – {{ exp.end }}{% endif %}</span>
+    {% if exp.location %}<span class="entry-location">{{ exp.location }}</span>{% endif %}
+  </div>
+  {% if exp.accomplishments %}
+  <ul class="accomplishments">
+    {% for a in exp.accomplishments %}<li>{{ a }}</li>{% endfor %}
+  </ul>
+  {% endif %}
+  <div style="margin-top:8px">
+    <button class="btn btn-sm"
+            hx-get="/profile/experience/{{ index }}/edit"
+            hx-target="closest .entry"
+            hx-swap="outerHTML">Edit</button>
+    <button class="btn btn-sm btn-danger"
+            hx-delete="/profile/experience/{{ index }}"
+            hx-target="#experience-list"
+            hx-swap="innerHTML"
+            hx-confirm="Delete this experience entry?">Delete</button>
+  </div>
+</div>
