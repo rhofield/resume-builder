@@ -196,3 +196,138 @@ def test_generate_passes_valid_model_to_generator(client, mock_profile_path, tmp
         })
 
     assert mock_generate.call_args[0][3] == "opus"
+
+
+def test_view_education(client, mock_profile_path):
+    response = client.get("/profile/education/0")
+    assert response.status_code == 200
+    assert "University of London" in response.text
+    assert 'hx-get="/profile/education/0/edit"' in response.text
+
+
+def test_view_education_not_found(client, mock_profile_path):
+    response = client.get("/profile/education/99")
+    assert response.status_code == 404
+
+
+def test_edit_education_form(client, mock_profile_path):
+    response = client.get("/profile/education/0/edit")
+    assert response.status_code == 200
+    assert 'value="University of London"' in response.text
+    assert 'hx-put="/profile/education/0"' in response.text
+
+
+def test_update_education(client, mock_profile_path):
+    import json
+    response = client.put("/profile/education/0", data={
+        "institution": "Updated University",
+        "degree": "MSc",
+        "field": "Data Science",
+        "start": "2017",
+        "end": "2020",
+        "details": "Distinction",
+    })
+    assert response.status_code == 200
+    assert "Updated University" in response.text
+    saved = json.loads(mock_profile_path.read_text())
+    assert saved["education"][0]["institution"] == "Updated University"
+    assert saved["education"][0]["degree"] == "MSc"
+
+
+def test_update_education_not_found(client, mock_profile_path):
+    response = client.put("/profile/education/99", data={
+        "institution": "X", "degree": "Y", "field": "",
+        "start": "", "end": "", "details": "",
+    })
+    assert response.status_code == 404
+
+
+def test_view_experience(client, mock_profile_path):
+    response = client.get("/profile/experience/0")
+    assert response.status_code == 200
+    assert "Tech Corp" in response.text
+    assert 'hx-get="/profile/experience/0/edit"' in response.text
+
+
+def test_view_experience_not_found(client, mock_profile_path):
+    response = client.get("/profile/experience/99")
+    assert response.status_code == 404
+
+
+def test_edit_experience_form(client, mock_profile_path):
+    response = client.get("/profile/experience/0/edit")
+    assert response.status_code == 200
+    assert 'value="Tech Corp"' in response.text
+    assert "Built REST API serving 10k requests/day using Python and FastAPI" in response.text
+
+
+def test_update_experience(client, mock_profile_path):
+    import json
+    response = client.put("/profile/experience/0", data={
+        "company": "Updated Corp",
+        "title": "Senior Engineer",
+        "start": "2019",
+        "end": "Present",
+        "location": "Remote",
+        "accomplishments_raw": "Shipped v2 of the platform\nMentored 2 engineers",
+    })
+    assert response.status_code == 200
+    assert "Updated Corp" in response.text
+    saved = json.loads(mock_profile_path.read_text())
+    assert saved["experience"][0]["company"] == "Updated Corp"
+    assert saved["experience"][0]["accomplishments"] == [
+        "Shipped v2 of the platform",
+        "Mentored 2 engineers",
+    ]
+
+
+def test_update_experience_not_found(client, mock_profile_path):
+    response = client.put("/profile/experience/99", data={
+        "company": "X", "title": "Y", "start": "", "end": "",
+        "location": "", "accomplishments_raw": "",
+    })
+    assert response.status_code == 404
+
+
+def test_view_project(client, mock_profile_path):
+    response = client.get("/profile/projects/0")
+    assert response.status_code == 200
+    assert "CLI Tool" in response.text
+    assert 'hx-get="/profile/projects/0/edit"' in response.text
+
+
+def test_view_project_not_found(client, mock_profile_path):
+    response = client.get("/profile/projects/99")
+    assert response.status_code == 404
+
+
+def test_edit_project_form(client, mock_profile_path):
+    response = client.get("/profile/projects/0/edit")
+    assert response.status_code == 200
+    assert 'value="CLI Tool"' in response.text
+    assert 'value="Python, Click"' in response.text
+
+
+def test_update_project(client, mock_profile_path):
+    import json
+    response = client.put("/profile/projects/0", data={
+        "name": "Updated Tool",
+        "description": "Now does more",
+        "tech_stack_raw": "Python, Click, Rich",
+        "highlights_raw": "1000 stars\nFeatured on HN",
+        "url": "github.com/janesmith/updated-tool",
+    })
+    assert response.status_code == 200
+    assert "Updated Tool" in response.text
+    saved = json.loads(mock_profile_path.read_text())
+    assert saved["projects"][0]["name"] == "Updated Tool"
+    assert saved["projects"][0]["tech_stack"] == ["Python", "Click", "Rich"]
+    assert saved["projects"][0]["highlights"] == ["1000 stars", "Featured on HN"]
+
+
+def test_update_project_not_found(client, mock_profile_path):
+    response = client.put("/profile/projects/99", data={
+        "name": "X", "description": "", "tech_stack_raw": "",
+        "highlights_raw": "", "url": "",
+    })
+    assert response.status_code == 404

@@ -1,0 +1,33 @@
+<div class="entry">
+  <form hx-put="/profile/projects/{{ index }}"
+        hx-target="closest .entry"
+        hx-swap="outerHTML">
+    <div class="form-grid">
+      <label>Project Name
+        <input type="text" name="name" required value="{{ proj.name }}">
+      </label>
+      <label>URL
+        <input type="text" name="url" value="{{ proj.url }}">
+      </label>
+      <label style="grid-column:1/-1">Tech Stack
+        <small style="font-weight:400;color:#888"> (comma-separated)</small>
+        <input type="text" name="tech_stack_raw" value="{{ proj.tech_stack|join(', ') }}">
+      </label>
+    </div>
+    <label>Description
+      <textarea name="description" rows="2">{{ proj.description }}</textarea>
+    </label>
+    <label>
+      Highlights
+      <small style="font-weight:400;color:#888"> — one per line</small>
+      <textarea name="highlights_raw" rows="3">{{ proj.highlights|join("\n") }}</textarea>
+    </label>
+    <div style="margin-top:8px">
+      <button type="submit" class="btn btn-sm btn-primary">Save</button>
+      <button type="button" class="btn btn-sm"
+              hx-get="/profile/projects/{{ index }}"
+              hx-target="closest .entry"
+              hx-swap="outerHTML">Cancel</button>
+    </div>
+  </form>
+</div>
