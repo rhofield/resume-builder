@@ -39,7 +39,10 @@
   <h2>Recent generations</h2>
   <ul class="output-list">
     {% for item in recent_outputs %}
-    <li><a href="{{ item.url }}" target="_blank">{{ item.name }}</a></li>
+    <li>
+      <a href="{{ item.url }}" target="_blank">{{ item.name }}</a>
+      {% if item.edit_url %}<a href="{{ item.edit_url }}" class="btn btn-sm">Edit</a>{% endif %}
+    </li>
     {% endfor %}
   </ul>
 </div>

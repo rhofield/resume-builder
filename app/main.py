@@ -41,7 +41,31 @@ def get_recent_outputs() -> list[dict]:
     files = sorted(
         OUTPUT_DIR.glob("*.pdf"), key=lambda p: p.stat().st_mtime, reverse=True
     )
-    return [{"name": p.name, "url": f"/output/{p.name}"} for p in files[:10]]
+    return [
+        {
+            "name": p.name,
+            "url": f"/output/{p.name}",
+            "stem": p.stem,
+            "edit_url": f"/edit/{p.stem}" if (OUTPUT_DIR / f"{p.stem}.html").exists() else None,
+        }
+        for p in files[:10]
+    ]
+
+
+# Generated stems are built from slugified company/role plus a timestamp, so this
+# is deliberately narrow: anything with a slash, "..", or a leading dot is rejected
+# before it ever reaches the filesystem.
+OUTPUT_STEM_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
+
+
+def _resolve_output_html(stem: str) -> Path:
+    """Map a URL stem to output/<stem>.html, or 404. Never escapes OUTPUT_DIR."""
+    if not OUTPUT_STEM_RE.match(stem):
+        raise HTTPException(status_code=404, detail="Resume not found.")
+    path = (OUTPUT_DIR / f"{stem}.html").resolve()
+    if not path.is_relative_to(OUTPUT_DIR.resolve()) or not path.is_file():
+        raise HTTPException(status_code=404, detail="Resume not found.")
+    return path
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -397,6 +421,7 @@ async def run_generate(
             "pdf_url": None,
             "html_url": None,
             "pdf_ok": False,
+            "edit_url": None,
         })
     if provider not in llm_providers:
         return templates.TemplateResponse(request, "partials/generate_result.html", context={
@@ -405,6 +430,7 @@ async def run_generate(
             "pdf_url": None,
             "html_url": None,
             "pdf_ok": False,
+            "edit_url": None,
         })
     if not model:
         model = get_default_model(provider)
@@ -415,6 +441,7 @@ async def run_generate(
             "pdf_url": None,
             "html_url": None,
             "pdf_ok": False,
+            "edit_url": None,
         })
     template_path = RESUME_TEMPLATES_DIR / f"{template_id}.html"
 
@@ -434,6 +461,7 @@ async def run_generate(
             "pdf_url": None,
             "html_url": None,
             "pdf_ok": False,
+            "edit_url": None,
         })
 
     _safe = lambda s, d: (re.sub(r"[^a-z0-9-]", "", s.strip().lower().replace(" ", "-"))[:20] or d)
@@ -446,7 +474,7 @@ async def run_generate(
     if not html_path.resolve().is_relative_to(OUTPUT_DIR.resolve()):
         return templates.TemplateResponse(request, "partials/generate_result.html", context={
             "error": "Invalid output filename.",
-            "raw_output": "", "pdf_url": None, "html_url": None, "pdf_ok": False,
+            "raw_output": "", "pdf_url": None, "html_url": None, "pdf_ok": False, "edit_url": None,
         })
     html_path.write_text(html)
 
@@ -459,4 +487,36 @@ async def run_generate(
         "pdf_url": f"/output/{stem}.pdf" if pdf_ok else None,
         "html_url": f"/output/{stem}.html",
         "pdf_ok": pdf_ok,
+        "edit_url": f"/edit/{stem}",
+    })
+
+
+@app.get("/edit/{stem}", response_class=HTMLResponse)
+async def edit_resume(request: Request, stem: str):
+    _resolve_output_html(stem)
+    return templates.TemplateResponse(request, "edit.html", context={
+        "stem": stem,
+        "resume_url": f"/output/{stem}.html",
+        "pdf_url": f"/output/{stem}.pdf" if (OUTPUT_DIR / f"{stem}.pdf").exists() else None,
+    })
+
+
+@app.post("/edit/{stem}", response_class=HTMLResponse)
+async def save_resume(request: Request, stem: str, html: str = Form(...)):
+    path = _resolve_output_html(stem)
+    if "<html" not in html.lower():
+        return templates.TemplateResponse(request, "partials/edit_saved.html", context={
+            "error": "Refusing to save: the edited document is not valid HTML.",
+            "pdf_ok": False,
+            "pdf_url": None,
+        })
+
+    path.write_text(html)
+    pdf_path = OUTPUT_DIR / f"{stem}.pdf"
+    pdf_ok = await render_pdf(html, pdf_path)
+    return templates.TemplateResponse(request, "partials/edit_saved.html", context={
+        "error": "",
+        "pdf_ok": pdf_ok,
+        # Cache-bust so the browser doesn't hand back the pre-edit PDF.
+        "pdf_url": f"/output/{stem}.pdf?v={int(datetime.now().timestamp())}" if pdf_ok else None,
     })

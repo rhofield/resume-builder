@@ -1,0 +1,615 @@
+{% extends "base.html" %}
+{% block title %}Edit resume — Resume Builder{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <h1>Edit resume</h1>
+  <a href="/" class="btn">← Dashboard</a>
+</div>
+
+<div class="editor-toolbar" id="toolbar">
+  <div class="tb-group">
+    <button type="button" class="tb-btn" data-cmd="bold" title="Bold (Ctrl+B)"><b>B</b></button>
+    <button type="button" class="tb-btn" data-cmd="italic" title="Italic (Ctrl+I)"><i>I</i></button>
+    <button type="button" class="tb-btn" data-cmd="underline" title="Underline (Ctrl+U)"><u>U</u></button>
+  </div>
+
+  <div class="tb-group">
+    <button type="button" class="tb-btn" data-cmd="insertUnorderedList" title="Bulleted list">&bull; List</button>
+    <button type="button" class="tb-btn" data-cmd="insertOrderedList" title="Numbered list">1. List</button>
+    <button type="button" class="tb-btn" data-cmd="outdent" title="Decrease indent">&larr;</button>
+    <button type="button" class="tb-btn" data-cmd="indent" title="Increase indent">&rarr;</button>
+  </div>
+
+  <div class="tb-group">
+    <button type="button" class="tb-btn" data-size="0.9" title="Shrink selected text">A&minus;</button>
+    <button type="button" class="tb-btn" data-size="1.111" title="Grow selected text">A+</button>
+    <button type="button" class="tb-btn" data-action="link" title="Insert link">Link</button>
+    <button type="button" class="tb-btn" data-cmd="removeFormat" title="Clear formatting">Clear</button>
+  </div>
+
+  <div class="tb-group">
+    <button type="button" class="tb-btn" data-cmd="undo" title="Undo (Ctrl+Z)">Undo</button>
+    <button type="button" class="tb-btn" data-cmd="redo" title="Redo (Ctrl+Shift+Z)">Redo</button>
+  </div>
+
+  <div class="tb-group" title="Scale every font size in the document — use this to fit the page">
+    <span class="tb-label">Document</span>
+    <button type="button" class="tb-btn" data-scale="-1">&minus;</button>
+    <button type="button" class="tb-btn tb-btn-wide" id="scale-value" data-scale="0" title="Click to reset to 100%">100%</button>
+    <button type="button" class="tb-btn" data-scale="1">+</button>
+  </div>
+
+  <div class="tb-group">
+    <label class="tb-check" title="Show where the A4 page breaks will fall">
+      <input type="checkbox" id="guides-toggle" checked> Page guides
+    </label>
+  </div>
+</div>
+
+<div class="editor-actionbar">
+  <button type="button" id="save-btn" class="btn btn-primary">Save &amp; rebuild PDF</button>
+  <button type="button" id="revert-btn" class="btn">Discard changes</button>
+  <span id="page-count" class="editor-status"></span>
+  <span id="dirty-flag" class="editor-status"></span>
+</div>
+
+<div id="save-result"></div>
+
+<p class="editor-hint">
+  Click any text to edit it in place. Select text first, then use the toolbar.
+  Pasting keeps bold, italics, links and bullets but adopts this resume's fonts and sizes
+  &mdash; use <kbd>Ctrl+Shift+V</kbd> for plain text. Hover a section, entry or bullet to
+  move or delete it. <kbd>Ctrl+S</kbd> saves.
+</p>
+
+<div class="editor-frame-wrap">
+  <div class="editor-page" id="page-host">
+    <iframe id="resume-frame" src="{{ resume_url }}" title="Resume editor"></iframe>
+    <div id="page-guides" class="page-guides"></div>
+    <div id="block-overlay" class="block-overlay hidden">
+      <div class="block-tools">
+        <span class="block-label"></span>
+        <button type="button" class="block-btn" data-move="up" title="Move up">&uarr;</button>
+        <button type="button" class="block-btn" data-move="down" title="Move down">&darr;</button>
+        <button type="button" class="block-btn" data-move="parent" title="Select the block containing this one">&#8629;</button>
+        <button type="button" class="block-btn block-btn-danger" data-move="delete" title="Delete this block">&times;</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<form id="save-form" hx-post="/edit/{{ stem }}" hx-target="#save-result" hx-swap="innerHTML"
+      style="display:none">
+  <textarea name="html" id="html-field"></textarea>
+</form>
+
+<script>
+(function () {
+  // A4 at 96dpi — matches the page size Playwright renders with in app/pdf.py.
+  const PAGE_HEIGHT_PX = 1123;
+
+  const frame = document.getElementById('resume-frame');
+  const form = document.getElementById('save-form');
+  const field = document.getElementById('html-field');
+  const dirtyFlag = document.getElementById('dirty-flag');
+  const pageCount = document.getElementById('page-count');
+  const guidesEl = document.getElementById('page-guides');
+  const guidesToggle = document.getElementById('guides-toggle');
+  const scaleValue = document.getElementById('scale-value');
+
+  let dirty = false;
+  let scaleStep = 0;              // each step is 2.5%
+  let styleBaselines = [];        // pristine stylesheet text, captured once per load
+
+  function doc() { return frame.contentDocument; }
+
+  function setDirty(value) {
+    dirty = value;
+    dirtyFlag.textContent = value ? 'Unsaved changes' : '';
+    dirtyFlag.className = 'editor-status' + (value ? ' editor-status-dirty' : '');
+  }
+
+  /* ---------- load ---------- */
+
+  frame.addEventListener('load', function () {
+    const d = doc();
+    d.body.setAttribute('contenteditable', 'true');
+    d.body.setAttribute('spellcheck', 'true');
+
+    // Bold/italic should emit <b>/<i>, not styled spans — plain semantic tags
+    // survive ATS text extraction more reliably than CSS-only emphasis.
+    d.execCommand('styleWithCSS', false, false);
+
+    // Snapshot the stylesheets so document scaling always recomputes from the
+    // original pt values instead of compounding rounding errors step by step.
+    styleBaselines = Array.prototype.map.call(
+      d.querySelectorAll('style'),
+      function (el) { return { el: el, text: el.textContent }; }
+    );
+    scaleStep = 0;
+    scaleValue.textContent = '100%';
+
+    d.addEventListener('paste', handlePaste);
+
+    d.addEventListener('input', function () { setDirty(true); lastActionWasStructural = false; refreshLayout(); });
+    d.addEventListener('selectionchange', syncToolbarState);
+    d.addEventListener('keydown', function (e) {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+        e.preventDefault();
+        save();
+      }
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'v') {
+        forcePlainPaste = true;
+      }
+    });
+
+    bindOverlay();
+    setDirty(false);
+    refreshLayout();
+  });
+
+  /* ---------- layout: sizing + page guides ---------- */
+
+  function refreshLayout() {
+    const d = doc();
+    if (!d) return;
+    const height = d.documentElement.scrollHeight;
+    frame.style.height = Math.max(height, PAGE_HEIGHT_PX) + 'px';
+
+    const pages = Math.max(1, Math.ceil(height / PAGE_HEIGHT_PX));
+    pageCount.textContent = pages + (pages === 1 ? ' page' : ' pages');
+    pageCount.className = 'editor-status' + (pages > 2 ? ' editor-status-dirty' : '');
+
+    if (target && target.isConnected) showOverlay(target);
+
+    guidesEl.innerHTML = '';
+    for (let i = 1; i < pages; i++) {
+      const guide = document.createElement('div');
+      guide.className = 'page-guide';
+      guide.style.top = (i * PAGE_HEIGHT_PX) + 'px';
+      guide.dataset.label = 'Page ' + (i + 1);
+      guidesEl.appendChild(guide);
+    }
+  }
+  window.setInterval(refreshLayout, 1000);
+
+  guidesToggle.addEventListener('change', function () {
+    guidesEl.classList.toggle('hidden', !guidesToggle.checked);
+  });
+
+  /* ---------- document-wide font scaling ---------- */
+
+  // Templates size everything in absolute pt inside one <style> block, so there is
+  // no single cascading knob to turn: rewrite the pt literals numerically instead.
+  function applyDocumentScale() {
+    const factor = 1 + scaleStep * 0.025;
+    styleBaselines.forEach(function (entry) {
+      entry.el.textContent = entry.text.replace(
+        /font-size:\s*([\d.]+)pt/gi,
+        function (_, value) { return 'font-size: ' + (parseFloat(value) * factor).toFixed(2) + 'pt'; }
+      );
+    });
+    scaleValue.textContent = Math.round(factor * 100) + '%';
+    setDirty(true);
+    refreshLayout();
+  }
+
+  /* ---------- selection-level font scaling ---------- */
+
+  // execCommand('fontSize') only speaks the legacy 1-7 scale and emits <font size>.
+  // Run it with a sentinel value, then replace what it produced with a span carrying
+  // an explicit size relative to what the text was actually rendering at.
+  function scaleSelection(factor) {
+    const d = doc();
+    const win = frame.contentWindow;
+    const selection = d.getSelection();
+    if (!selection.rangeCount || selection.isCollapsed) return;
+
+    // Measure BEFORE the command runs: execCommand replaces any span left by a
+    // previous adjustment, so reading the size afterwards would always report the
+    // untouched parent and successive clicks would never compound.
+    const range = selection.getRangeAt(0);
+    let anchor = range.startContainer;
+    // A range can start on an element (Ctrl+A, or selecting a whole node) rather
+    // than a text node; descend to the first actual text so we measure the size
+    // the reader sees, not the size of some outer container.
+    if (anchor.nodeType === Node.ELEMENT_NODE) {
+      anchor = anchor.childNodes[range.startOffset] || anchor.firstChild || anchor;
+    }
+    while (anchor && anchor.nodeType === Node.ELEMENT_NODE && anchor.firstChild) {
+      anchor = anchor.firstChild;
+    }
+    if (anchor.nodeType === Node.TEXT_NODE) anchor = anchor.parentNode;
+    const baseline = parseFloat(win.getComputedStyle(anchor).fontSize);
+    const size = Math.min(48, Math.max(4, baseline * factor));
+
+    d.execCommand('styleWithCSS', false, false);
+    d.execCommand('fontSize', false, '7');
+
+    Array.prototype.forEach.call(d.querySelectorAll('font[size="7"]'), function (font) {
+      const parent = font.parentNode;
+      const span = d.createElement('span');
+      span.style.fontSize = size.toFixed(2) + 'px';
+      while (font.firstChild) span.appendChild(font.firstChild);
+      parent.replaceChild(span, font);
+
+      // Collapse span-in-span so repeated adjustments don't pile up wrappers.
+      if (parent.nodeName === 'SPAN' && parent.style.fontSize && parent.childNodes.length === 1) {
+        parent.style.fontSize = span.style.fontSize;
+        while (span.firstChild) parent.insertBefore(span.firstChild, span);
+        parent.removeChild(span);
+      }
+    });
+
+    setDirty(true);
+    refreshLayout();
+  }
+
+  /* ---------- block reordering ---------- */
+
+  const BLOCK_TAGS = { DIV: 1, SECTION: 1, ARTICLE: 1, LI: 1, P: 1, UL: 1, OL: 1, HEADER: 1, ASIDE: 1 };
+  // The template vocabulary. Matching these means a lone entry is still selectable
+  // even when it has no sibling to be compared against.
+  const NAMED_BLOCKS = /(^|\s)(section|entry|sidebar-section)(\s|$)/;
+  const LABELS = { section: 'Section', entry: 'Entry', 'sidebar-section': 'Section' };
+
+  const overlay = document.getElementById('block-overlay');
+  const overlayLabel = overlay.querySelector('.block-label');
+  let target = null;
+  let lastActionWasStructural = false;
+  const structuralUndo = [];
+
+  function className(el) {
+    return typeof el.className === 'string' ? el.className : '';
+  }
+
+  // Siblings that represent the same kind of thing. Restricting moves to this set
+  // is what stops an entry being pushed above its own section heading.
+  function peers(el) {
+    if (!el.parentNode) return [el];
+    return Array.prototype.filter.call(el.parentNode.children, function (sibling) {
+      return sibling.nodeName === el.nodeName && className(sibling) === className(el);
+    });
+  }
+
+  function isMovable(el) {
+    if (!el || el.nodeType !== Node.ELEMENT_NODE) return false;
+    if (!BLOCK_TAGS[el.nodeName] || !el.parentNode) return false;
+    if (el.nodeName === 'BODY' || el.nodeName === 'HTML') return false;
+    if (!el.textContent.trim()) return false;
+    if (NAMED_BLOCKS.test(className(el))) return true;
+    return peers(el).length > 1;
+  }
+
+  function movableFrom(el) {
+    while (el && el.nodeType === Node.ELEMENT_NODE) {
+      if (isMovable(el)) return el;
+      el = el.parentNode;
+    }
+    return null;
+  }
+
+  function labelFor(el) {
+    const match = className(el).match(NAMED_BLOCKS);
+    if (match) return LABELS[match[2]];
+    if (el.nodeName === 'LI') return 'Bullet';
+    return el.nodeName.toLowerCase();
+  }
+
+  function showOverlay(el) {
+    target = el;
+    if (!el) { overlay.classList.add('hidden'); return; }
+
+    const rect = el.getBoundingClientRect();
+    overlay.classList.remove('hidden');
+    overlay.style.top = (rect.top + frame.offsetTop) + 'px';
+    overlay.style.left = (rect.left + frame.offsetLeft) + 'px';
+    overlay.style.width = rect.width + 'px';
+    overlay.style.height = rect.height + 'px';
+
+    const group = peers(el);
+    const index = group.indexOf(el);
+    overlayLabel.textContent = labelFor(el) + (group.length > 1 ? ' ' + (index + 1) + '/' + group.length : '');
+    overlay.querySelector('[data-move="up"]').disabled = index <= 0;
+    overlay.querySelector('[data-move="down"]').disabled = index < 0 || index >= group.length - 1;
+    overlay.querySelector('[data-move="parent"]').disabled = !movableFrom(el.parentNode);
+  }
+
+  function recordStructural(el) {
+    structuralUndo.push({ node: el, parent: el.parentNode, next: el.nextSibling });
+    if (structuralUndo.length > 50) structuralUndo.shift();
+    lastActionWasStructural = true;
+  }
+
+  function undoStructural() {
+    const previous = structuralUndo.pop();
+    if (!previous) return false;
+    previous.parent.insertBefore(previous.node, previous.next);
+    if (!structuralUndo.length) lastActionWasStructural = false;
+    setDirty(true);
+    refreshLayout();
+    showOverlay(previous.node);
+    return true;
+  }
+
+  function moveBlock(el, delta) {
+    const group = peers(el);
+    const index = group.indexOf(el);
+    const destination = index + delta;
+    if (index < 0 || destination < 0 || destination >= group.length) return;
+
+    recordStructural(el);
+    if (delta < 0) el.parentNode.insertBefore(el, group[destination]);
+    else el.parentNode.insertBefore(el, group[destination].nextSibling);
+
+    setDirty(true);
+    refreshLayout();
+    showOverlay(el);
+    el.scrollIntoView({ block: 'nearest' });
+  }
+
+  // Reaching for the overlay's buttons means moving the pointer across the document
+  // underneath, which would otherwise retarget or hide the very controls being
+  // aimed at. Freeze the selection while the pointer is on the tools.
+  let pointerOverTools = false;
+  let hideTimer = null;
+  const tools = overlay.querySelector('.block-tools');
+
+  tools.addEventListener('mouseenter', function () {
+    pointerOverTools = true;
+    window.clearTimeout(hideTimer);
+  });
+  tools.addEventListener('mouseleave', function () { pointerOverTools = false; });
+
+  function bindOverlay() {
+    const d = doc();
+    d.addEventListener('mousemove', function (e) {
+      if (pointerOverTools) return;
+      window.clearTimeout(hideTimer);
+      const found = movableFrom(e.target);
+      if (found !== target) showOverlay(found);
+    });
+    d.addEventListener('mouseleave', function () {
+      hideTimer = window.setTimeout(function () {
+        if (!pointerOverTools) showOverlay(null);
+      }, 300);
+    });
+  }
+
+  overlay.addEventListener('mousedown', function (e) { e.preventDefault(); });
+  overlay.addEventListener('click', function (e) {
+    const btn = e.target.closest('.block-btn');
+    if (!btn || btn.disabled || !target) return;
+    const action = btn.dataset.move;
+
+    if (action === 'up') moveBlock(target, -1);
+    else if (action === 'down') moveBlock(target, 1);
+    else if (action === 'parent') showOverlay(movableFrom(target.parentNode));
+    else if (action === 'delete') {
+      recordStructural(target);
+      const removed = target;
+      showOverlay(null);
+      removed.parentNode.removeChild(removed);
+      setDirty(true);
+      refreshLayout();
+    }
+  });
+
+  /* ---------- paste ---------- */
+
+  // Tags that carry meaning rather than the source document's appearance.
+  const KEEP_TAGS = {
+    B: 1, STRONG: 1, I: 1, EM: 1, U: 1, S: 1, STRIKE: 1, DEL: 1,
+    SUB: 1, SUP: 1, BR: 1, P: 1, UL: 1, OL: 1, LI: 1, A: 1
+  };
+  // Dropped outright, contents included.
+  const DROP_TAGS = {
+    SCRIPT: 1, STYLE: 1, META: 1, LINK: 1, TITLE: 1, HEAD: 1,
+    IMG: 1, SVG: 1, OBJECT: 1, IFRAME: 1, INPUT: 1, BUTTON: 1
+  };
+  // Rewritten to something the resume template already styles.
+  const MAP_TAGS = {
+    DIV: 'P', H1: 'P', H2: 'P', H3: 'P', H4: 'P', H5: 'P', H6: 'P',
+    BLOCKQUOTE: 'P', SECTION: 'P', ARTICLE: 'P'
+  };
+  const HEADINGS = { H1: 1, H2: 1, H3: 1, H4: 1, H5: 1, H6: 1 };
+  let forcePlainPaste = false;
+
+  // null means "the source said nothing", which is different from "explicitly not bold".
+  function declaredBold(el) {
+    const weight = (el.style && el.style.fontWeight) || '';
+    if (!weight) return null;
+    if (weight === 'bold' || weight === 'bolder') return true;
+    if (weight === 'normal' || weight === 'lighter') return false;
+    const numeric = parseInt(weight, 10);
+    return isNaN(numeric) ? null : numeric >= 600;
+  }
+
+  function declaredItalic(el) {
+    const style = (el.style && el.style.fontStyle) || '';
+    return style === 'italic' || style === 'oblique';
+  }
+
+  function declaredUnderline(el) {
+    const decoration = (el.style && (el.style.textDecorationLine || el.style.textDecoration)) || '';
+    return decoration.indexOf('underline') !== -1;
+  }
+
+  function convertNode(node, target) {
+    if (node.nodeType === Node.TEXT_NODE) return target.createTextNode(node.nodeValue);
+    if (node.nodeType !== Node.ELEMENT_NODE) return null;
+
+    const tag = node.nodeName.toUpperCase();
+    if (DROP_TAGS[tag]) return null;
+
+    const children = target.createDocumentFragment();
+    Array.prototype.forEach.call(node.childNodes, function (child) {
+      const converted = convertNode(child, target);
+      if (converted) children.appendChild(converted);
+    });
+
+    let name = MAP_TAGS[tag] || (KEEP_TAGS[tag] ? tag : null);
+
+    // Google Docs wraps its whole clipboard payload in <b style="font-weight:normal">.
+    // Honouring the tag alone would make every pasted line bold.
+    if ((name === 'B' || name === 'STRONG') && declaredBold(node) === false) name = null;
+
+    let element = null;
+    if (name) {
+      element = target.createElement(name);
+      if (name === 'A') {
+        const href = node.getAttribute('href') || '';
+        // Only linkable schemes; never javascript: or data:.
+        if (/^(https?:|mailto:)/i.test(href)) element.setAttribute('href', href);
+      }
+    }
+
+    // Word and Google Docs express emphasis as CSS on a span rather than as tags,
+    // so recover it as semantic markup before the span itself is discarded.
+    const wraps = [];
+    if (declaredBold(node) === true && name !== 'B' && name !== 'STRONG') wraps.push('B');
+    if (declaredItalic(node) && name !== 'I' && name !== 'EM') wraps.push('I');
+    if (declaredUnderline(node) && name !== 'U') wraps.push('U');
+    // A pasted heading keeps its prominence without importing its font size.
+    if (HEADINGS[tag]) wraps.push('B');
+
+    function applyWraps(inner) {
+      wraps.forEach(function (wrapper) {
+        const el = target.createElement(wrapper);
+        el.appendChild(inner);
+        inner = el;
+      });
+      return inner;
+    }
+
+    // The children are attached exactly once, here, so the fragment is never
+    // drained before the wrapping decision is made.
+    if (!element) return applyWraps(children);
+
+    // Emphasis is inline, so it must sit *inside* a block element - <b><p>x</p></b>
+    // is invalid and browsers reflow it unpredictably. A list takes no emphasis at
+    // all; its items carry their own.
+    if (name === 'UL' || name === 'OL') {
+      element.appendChild(children);
+      return element;
+    }
+    if (name === 'P' || name === 'LI') {
+      element.appendChild(applyWraps(children));
+      return element;
+    }
+    element.appendChild(children);
+    return applyWraps(element);
+  }
+
+  // Exposed so the browser tests can exercise the sanitizer directly.
+  window.sanitizePastedHtml = function (html) {
+    const parsed = new DOMParser().parseFromString(html, 'text/html');
+    const holder = parsed.createElement('div');
+    const converted = convertNode(parsed.body, parsed);
+    if (converted) holder.appendChild(converted);
+    return holder.innerHTML.replace(/<p>\s*<\/p>/g, '').trim();
+  };
+
+  function handlePaste(e) {
+    e.preventDefault();
+    const d = doc();
+    const clipboard = e.clipboardData || window.clipboardData;
+    const html = forcePlainPaste ? '' : clipboard.getData('text/html');
+    forcePlainPaste = false;
+
+    if (html) {
+      d.execCommand('insertHTML', false, window.sanitizePastedHtml(html));
+    } else {
+      d.execCommand('insertText', false, clipboard.getData('text/plain'));
+    }
+    setDirty(true);
+    refreshLayout();
+  }
+
+  /* ---------- toolbar ---------- */
+
+  function syncToolbarState() {
+    const d = doc();
+    if (!d) return;
+    document.querySelectorAll('#toolbar .tb-btn[data-cmd]').forEach(function (btn) {
+      const cmd = btn.dataset.cmd;
+      let active = false;
+      try { active = d.queryCommandState(cmd); } catch (err) { active = false; }
+      btn.classList.toggle('tb-btn-active', active);
+    });
+  }
+
+  // Keep the caret/selection inside the iframe when a toolbar button is pressed.
+  document.getElementById('toolbar').addEventListener('mousedown', function (e) {
+    if (e.target.closest('.tb-btn')) e.preventDefault();
+  });
+
+  document.getElementById('toolbar').addEventListener('click', function (e) {
+    const btn = e.target.closest('.tb-btn');
+    if (!btn) return;
+    const d = doc();
+
+    // execCommand is a no-op unless the editable document holds focus, so claim it
+    // before dispatching. The mousedown handler above kept the selection intact.
+    frame.contentWindow.focus();
+
+    if (btn.dataset.cmd === 'undo' && lastActionWasStructural) {
+      undoStructural();
+    } else if (btn.dataset.cmd) {
+      d.execCommand(btn.dataset.cmd, false, null);
+      setDirty(true);
+      refreshLayout();
+      syncToolbarState();
+    } else if (btn.dataset.size) {
+      scaleSelection(parseFloat(btn.dataset.size));
+    } else if (btn.dataset.scale !== undefined) {
+      const step = parseInt(btn.dataset.scale, 10);
+      scaleStep = step === 0 ? 0 : scaleStep + step;
+      applyDocumentScale();
+    } else if (btn.dataset.action === 'link') {
+      const url = window.prompt('Link URL');
+      if (url) { d.execCommand('createLink', false, url); setDirty(true); }
+    }
+  });
+
+  /* ---------- save ---------- */
+
+  // Serialize a *clone* so editing affordances never end up in the saved file.
+  function cleanHtml() {
+    const clone = doc().documentElement.cloneNode(true);
+    clone.querySelectorAll('[contenteditable]').forEach(function (el) {
+      el.removeAttribute('contenteditable');
+    });
+    clone.querySelectorAll('[spellcheck]').forEach(function (el) {
+      el.removeAttribute('spellcheck');
+    });
+    return '<!DOCTYPE html>\n' + clone.outerHTML;
+  }
+
+  function save() {
+    field.value = cleanHtml();
+    htmx.trigger(form, 'submit');
+    setDirty(false);
+  }
+
+  document.getElementById('save-btn').addEventListener('click', save);
+
+  document.getElementById('revert-btn').addEventListener('click', function () {
+    if (!dirty || window.confirm('Discard all unsaved edits and reload the last saved version?')) {
+      setDirty(false);
+      frame.contentWindow.location.reload();
+    }
+  });
+
+  document.addEventListener('keydown', function (e) {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') { e.preventDefault(); save(); }
+  });
+
+  window.addEventListener('beforeunload', function (e) {
+    if (dirty) { e.preventDefault(); e.returnValue = ''; }
+  });
+})();
+</script>
+
+{% endblock %}
