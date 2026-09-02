@@ -155,3 +155,83 @@ kbd {
   padding: 1px 5px; font-size: 12px; font-family: monospace;
 }
 details summary { cursor: pointer; font-size: 13px; color: #888; margin-top: 8px; }
+
+/* --- Resume editor --- */
+.editor-toolbar {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
+  padding: 8px 10px; margin-bottom: 8px;
+  background: #fff; border: 1px solid #e2e6f0; border-radius: 8px;
+  position: sticky; top: 0; z-index: 10;
+}
+.tb-group {
+  display: flex; align-items: center; gap: 4px;
+  padding-right: 8px; margin-right: 2px; border-right: 1px solid #e6e9f2;
+}
+.tb-group:last-child { border-right: 0; padding-right: 0; }
+.tb-btn {
+  min-width: 30px; height: 28px; padding: 0 7px;
+  font-size: 12px; font-family: inherit; line-height: 1;
+  background: #fff; color: #333; cursor: pointer;
+  border: 1px solid #d7dcea; border-radius: 5px;
+}
+.tb-btn:hover { background: #f0f2f8; }
+.tb-btn-active { background: #dbeafe; border-color: #93c5fd; color: #1d4ed8; }
+.tb-btn-wide { min-width: 52px; }
+.tb-label { font-size: 12px; color: #666; margin-right: 2px; }
+.tb-check { display: flex; align-items: center; gap: 5px; font-size: 12px; color: #666; cursor: pointer; }
+
+.editor-actionbar { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+.editor-status { font-size: 13px; color: #666; }
+.editor-actionbar .editor-status:last-child { margin-left: auto; }
+.editor-status-dirty { color: #92400e; font-weight: 600; }
+.editor-hint { font-size: 13px; color: #666; margin: 12px 0 8px; }
+
+.editor-frame-wrap {
+  background: #eef0f6; border: 1px solid #e2e6f0; border-radius: 8px;
+  padding: 16px; overflow-x: auto;
+}
+.editor-page { position: relative; width: 794px; max-width: 100%; margin: 0 auto; }
+.editor-page iframe {
+  display: block; width: 100%; min-height: 1123px;
+  border: 0; background: #fff; box-shadow: 0 2px 12px rgba(0,0,0,.12);
+}
+
+/* Page guides sit above the frame but must never swallow clicks meant for the
+   editable document underneath. */
+.page-guides { position: absolute; inset: 0; pointer-events: none; }
+.page-guides.hidden { display: none; }
+.page-guide { position: absolute; left: 0; right: 0; border-top: 1px dashed #ef4444; }
+.page-guide::after {
+  content: attr(data-label);
+  position: absolute; right: 0; top: 2px;
+  padding: 1px 6px; font-size: 10px; font-weight: 600;
+  color: #fff; background: #ef4444; border-radius: 0 0 4px 4px;
+}
+
+/* Block reordering overlay. Lives in the parent document, never in the resume,
+   so none of this can leak into the saved HTML or the PDF. */
+.block-overlay {
+  position: absolute; z-index: 5; pointer-events: none;
+  outline: 2px solid #2563eb; outline-offset: 1px;
+  background: rgba(37, 99, 235, .06); border-radius: 2px;
+}
+.block-overlay.hidden { display: none; }
+.block-tools {
+  position: absolute; top: -1px; right: -1px;
+  display: flex; align-items: center; gap: 2px;
+  padding: 2px 3px 2px 7px;
+  background: #2563eb; border-radius: 0 2px 0 4px;
+  pointer-events: auto;
+}
+.block-label {
+  font-size: 10px; font-weight: 600; color: #fff;
+  text-transform: uppercase; letter-spacing: .04em; margin-right: 3px;
+}
+.block-btn {
+  width: 20px; height: 20px; padding: 0; line-height: 1;
+  font-size: 12px; font-family: inherit; color: #fff; cursor: pointer;
+  background: rgba(255, 255, 255, .18); border: 0; border-radius: 3px;
+}
+.block-btn:hover:not(:disabled) { background: rgba(255, 255, 255, .38); }
+.block-btn:disabled { opacity: .3; cursor: default; }
+.block-btn-danger:hover:not(:disabled) { background: #dc2626; }
