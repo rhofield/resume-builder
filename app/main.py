@@ -6,7 +6,13 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from .profile import load_profile, save_profile
-from .generator import generate_resume
+from .generator import (
+    generate_resume,
+    get_default_model,
+    get_default_provider,
+    get_llm_providers,
+    is_valid_provider_model,
+)
 from .pdf import render_pdf
 
 BASE_DIR = Path(__file__).parent
@@ -168,6 +174,7 @@ async def add_experience(
     end: str = Form(""),
     location: str = Form(""),
     accomplishments_raw: str = Form(""),
+    always_include: bool = Form(False),
 ):
     profile = load_profile()
     accomplishments = [
@@ -178,6 +185,7 @@ async def add_experience(
     profile["experience"].append({
         "company": company, "title": title, "start": start,
         "end": end, "location": location, "accomplishments": accomplishments,
+        "always_include": always_include,
     })
     save_profile(profile)
     return templates.TemplateResponse(request, "partials/experience_list.html", context={
@@ -228,6 +236,7 @@ async def update_experience(
     end: str = Form(""),
     location: str = Form(""),
     accomplishments_raw: str = Form(""),
+    always_include: bool = Form(False),
 ):
     profile = load_profile()
     if not 0 <= index < len(profile["experience"]):
@@ -240,6 +249,7 @@ async def update_experience(
     profile["experience"][index] = {
         "company": company, "title": title, "start": start,
         "end": end, "location": location, "accomplishments": accomplishments,
+        "always_include": always_include,
     }
     save_profile(profile)
     return templates.TemplateResponse(request, "partials/experience_entry.html", context={
@@ -256,6 +266,7 @@ async def add_project(
     tech_stack_raw: str = Form(""),
     highlights_raw: str = Form(""),
     url: str = Form(""),
+    always_include: bool = Form(False),
 ):
     profile = load_profile()
     tech_stack = [t.strip() for t in tech_stack_raw.split(",") if t.strip()]
@@ -267,6 +278,7 @@ async def add_project(
     profile["projects"].append({
         "name": name, "description": description,
         "tech_stack": tech_stack, "highlights": highlights, "url": url,
+        "always_include": always_include,
     })
     save_profile(profile)
     return templates.TemplateResponse(request, "partials/projects_list.html", context={
@@ -316,6 +328,7 @@ async def update_project(
     tech_stack_raw: str = Form(""),
     highlights_raw: str = Form(""),
     url: str = Form(""),
+    always_include: bool = Form(False),
 ):
     profile = load_profile()
     if not 0 <= index < len(profile["projects"]):
@@ -329,6 +342,7 @@ async def update_project(
     profile["projects"][index] = {
         "name": name, "description": description,
         "tech_stack": tech_stack, "highlights": highlights, "url": url,
+        "always_include": always_include,
     }
     save_profile(profile)
     return templates.TemplateResponse(request, "partials/projects_entry.html", context={
@@ -354,9 +368,12 @@ async def generate_page(request: Request):
     profile = load_profile()
     if not profile["static"].get("name") and not profile["experience"]:
         return RedirectResponse("/?setup=1", status_code=302)
+    llm_providers = get_llm_providers()
     return templates.TemplateResponse(request, "generate.html", context={
         "resume_templates": get_resume_templates(),
         "has_experience": bool(profile["experience"]),
+        "llm_providers": llm_providers,
+        "default_provider": get_default_provider(),
     })
 
 
@@ -367,9 +384,11 @@ async def run_generate(
     job_title: str = Form(""),
     job_company: str = Form(""),
     template_id: str = Form(...),
+    provider: str = Form("claude"),
     model: str = Form("sonnet"),
 ):
     profile = load_profile()
+    llm_providers = get_llm_providers()
     valid_ids = {p.stem for p in RESUME_TEMPLATES_DIR.glob("*.html")}
     if template_id not in valid_ids:
         return templates.TemplateResponse(request, "partials/generate_result.html", context={
@@ -379,10 +398,19 @@ async def run_generate(
             "html_url": None,
             "pdf_ok": False,
         })
-    valid_models = {"sonnet", "opus", "haiku"}
-    if model not in valid_models:
+    if provider not in llm_providers:
         return templates.TemplateResponse(request, "partials/generate_result.html", context={
-            "error": f"Model '{model}' not recognized.",
+            "error": f"Provider '{provider}' not recognized.",
+            "raw_output": "",
+            "pdf_url": None,
+            "html_url": None,
+            "pdf_ok": False,
+        })
+    if not model:
+        model = get_default_model(provider)
+    if not is_valid_provider_model(provider, model):
+        return templates.TemplateResponse(request, "partials/generate_result.html", context={
+            "error": f"Model '{model}' is not valid for provider '{provider}'.",
             "raw_output": "",
             "pdf_url": None,
             "html_url": None,
@@ -391,7 +419,13 @@ async def run_generate(
     template_path = RESUME_TEMPLATES_DIR / f"{template_id}.html"
 
     template_html = template_path.read_text()
-    html, error = generate_resume(profile, job_description, template_html, model)
+    html, error = generate_resume(
+        profile,
+        job_description,
+        template_html,
+        provider=provider,
+        model=model,
+    )
 
     if not html:
         return templates.TemplateResponse(request, "partials/generate_result.html", context={

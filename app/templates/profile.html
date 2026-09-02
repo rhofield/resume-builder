@@ -126,6 +126,10 @@
       <textarea name="accomplishments_raw" rows="6"
                 placeholder="Built REST API serving 50k req/day using Python and FastAPI&#10;Reduced CI build time from 20min to 4min by caching Docker layers&#10;Mentored 3 junior engineers"></textarea>
     </label>
+    <label class="checkbox-label">
+      <input type="checkbox" name="always_include">
+      Always include this experience in generated resumes
+    </label>
     <button type="submit" class="btn btn-primary">Add</button>
   </form>
 </div>
@@ -163,6 +167,10 @@
       <small style="font-weight:400;color:#888"> — one per line</small>
       <textarea name="highlights_raw" rows="3"
                 placeholder="500 GitHub stars&#10;Used in production by 3 companies"></textarea>
+    </label>
+    <label class="checkbox-label">
+      <input type="checkbox" name="always_include">
+      Always include this project in generated resumes
     </label>
     <button type="submit" class="btn btn-primary">Add</button>
   </form>

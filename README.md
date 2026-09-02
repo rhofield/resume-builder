@@ -1,7 +1,8 @@
 # Resume Builder
 
 A local FastAPI app for maintaining a personal career profile and generating
-tailored, job-specific resumes (HTML + PDF) using the `claude` CLI.
+tailored, job-specific resumes (HTML + PDF) using either the `claude` CLI or
+Codex in headless mode.
 
 ## How it works
 
@@ -10,16 +11,19 @@ tailored, job-specific resumes (HTML + PDF) using the `claude` CLI.
 2. For a given job posting, you pick a resume template and paste in the job
    description.
 3. The app sends your profile + the job description + the template to the
-   `claude` CLI, which selects relevant experience and rewrites bullet points
-   to match the job's language, returning a complete HTML resume.
+   selected headless CLI (`claude` or `codex exec`), which selects relevant
+   experience and rewrites bullet points to match the job's language,
+   returning a complete HTML resume.
 4. The HTML is rendered to PDF (via Playwright) and saved to `output/`.
 
 ## Requirements
 
 - Python 3.11+
-- The [`claude` CLI](https://docs.claude.com/en/docs/claude-code) installed
-  and available on your `PATH`, with access to the models you intend to use
-  (`sonnet`, `opus`, `haiku`)
+- At least one supported CLI installed on your `PATH`:
+  - The [`claude` CLI](https://docs.claude.com/en/docs/claude-code) for
+    `sonnet`, `opus`, or `haiku`
+  - `codex` for headless Codex generation via `codex exec`, with access to
+    models such as `gpt-5` or `gpt-5-mini`
 - Playwright browser binaries for PDF rendering
 
 ## Setup
@@ -42,7 +46,7 @@ Then open http://127.0.0.1:8000.
 - **Dashboard** (`/`) — profile completeness and recent generated resumes.
 - **Profile** (`/profile`) — edit static info, education, experience, and projects.
 - **Generate** (`/generate`) — paste a job description, pick a template and
-  model, and generate a tailored resume.
+  provider/model, and generate a tailored resume.
 
 ## Resume templates
 

@@ -24,6 +24,10 @@
       <small style="font-weight:400;color:#888"> — one per line</small>
       <textarea name="accomplishments_raw" rows="6">{{ exp.accomplishments|join("\n") }}</textarea>
     </label>
+    <label class="checkbox-label">
+      <input type="checkbox" name="always_include" {% if exp.always_include %}checked{% endif %}>
+      Always include this experience in generated resumes
+    </label>
     <div style="margin-top:8px">
       <button type="submit" class="btn btn-sm btn-primary">Save</button>
       <button type="button" class="btn btn-sm"

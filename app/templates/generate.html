@@ -21,8 +21,8 @@
           hx-target="#generate-result"
           hx-swap="innerHTML"
           hx-indicator="#spinner"
-          hx-on::before-request="document.querySelector('button[type=submit]').disabled=true"
-          hx-on::after-request="document.querySelector('button[type=submit]').disabled=false">
+          hx-on::before-request="const b=document.querySelector('button[type=submit]');b.disabled=true;b.textContent='Generating…'"
+          hx-on::after-request="const b=document.querySelector('button[type=submit]');b.disabled=false;b.textContent='Generate Resume'">
 
       <label>Job Title <small style="font-weight:400;color:#888">(optional — used for filename)</small>
         <input type="text" name="job_title" placeholder="e.g. Senior Software Engineer">
@@ -35,11 +35,19 @@
                   placeholder="Paste the full job posting here..."></textarea>
       </label>
 
-      <label>Model <small style="font-weight:400;color:#888">(which Claude model generates this resume)</small>
-        <select name="model">
-          <option value="sonnet" selected>Sonnet</option>
-          <option value="opus">Opus</option>
-          <option value="haiku">Haiku</option>
+      <label>Provider <small style="font-weight:400;color:#888">(choose the headless CLI to run)</small>
+        <select name="provider" id="provider-select">
+          {% for provider_id, provider in llm_providers.items() %}
+          <option value="{{ provider_id }}"{{ " selected" if provider_id == default_provider }}>{{ provider.label }}</option>
+          {% endfor %}
+        </select>
+      </label>
+
+      <label>Model <small style="font-weight:400;color:#888">(available models depend on the selected provider)</small>
+        <select name="model" id="model-select">
+          {% for model_id, model_name in llm_providers[default_provider].models.items() %}
+          <option value="{{ model_id }}"{{ " selected" if loop.first }}>{{ model_name }}</option>
+          {% endfor %}
         </select>
       </label>
 
@@ -57,8 +65,9 @@
       <button type="submit" class="btn btn-primary btn-lg">Generate Resume</button>
     </form>
 
-    <div id="spinner" class="htmx-indicator spinner">
-      Generating your resume — this takes 15–30 seconds...
+    <div id="spinner" class="htmx-indicator spinner" role="status" aria-live="polite">
+      <span class="spinner-ring" aria-hidden="true"></span>
+      <span>Generating your resume — a full two-page draft can take up to 2 minutes…</span>
     </div>
   </div>
 
@@ -67,4 +76,28 @@
   </div>
 
 </div>
+<script>
+  (() => {
+    const providerSelect = document.getElementById("provider-select");
+    const modelSelect = document.getElementById("model-select");
+    const providers = {{ llm_providers | tojson }};
+
+    const renderModels = () => {
+      const provider = providers[providerSelect.value];
+      if (!provider) return;
+      modelSelect.innerHTML = "";
+      Object.entries(provider.models).forEach(([value, label], index) => {
+        const option = document.createElement("option");
+        option.value = value;
+        option.textContent = label;
+        if (index === 0) {
+          option.selected = true;
+        }
+        modelSelect.appendChild(option);
+      });
+    };
+
+    providerSelect.addEventListener("change", renderModels);
+  })();
+</script>
 {% endblock %}

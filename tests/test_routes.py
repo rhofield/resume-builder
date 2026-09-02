@@ -84,6 +84,37 @@ def test_add_experience(client, mock_profile_path):
     ]
 
 
+def test_add_experience_always_include(client, mock_profile_path):
+    import json
+    response = client.post("/profile/experience", data={
+        "company": "Cornerstone Corp",
+        "title": "Staff Engineer",
+        "start": "2020",
+        "end": "Present",
+        "location": "Remote",
+        "accomplishments_raw": "",
+        "always_include": "on",
+    })
+    assert response.status_code == 200
+    saved = json.loads(mock_profile_path.read_text())
+    assert saved["experience"][-1]["always_include"] is True
+
+
+def test_add_experience_default_not_always_include(client, mock_profile_path):
+    import json
+    response = client.post("/profile/experience", data={
+        "company": "Regular Corp",
+        "title": "Engineer",
+        "start": "2020",
+        "end": "2022",
+        "location": "Remote",
+        "accomplishments_raw": "",
+    })
+    assert response.status_code == 200
+    saved = json.loads(mock_profile_path.read_text())
+    assert saved["experience"][-1]["always_include"] is False
+
+
 def test_delete_experience(client, mock_profile_path):
     import json
     response = client.delete("/profile/experience/0")
@@ -110,6 +141,35 @@ def test_add_project(client, mock_profile_path):
     assert last["highlights"] == ["1000 users", "Open source"]
 
 
+def test_add_project_always_include(client, mock_profile_path):
+    import json
+    response = client.post("/profile/projects", data={
+        "name": "Flagship App",
+        "description": "",
+        "tech_stack_raw": "",
+        "highlights_raw": "",
+        "url": "",
+        "always_include": "on",
+    })
+    assert response.status_code == 200
+    saved = json.loads(mock_profile_path.read_text())
+    assert saved["projects"][-1]["always_include"] is True
+
+
+def test_add_project_default_not_always_include(client, mock_profile_path):
+    import json
+    response = client.post("/profile/projects", data={
+        "name": "Regular App",
+        "description": "",
+        "tech_stack_raw": "",
+        "highlights_raw": "",
+        "url": "",
+    })
+    assert response.status_code == 200
+    saved = json.loads(mock_profile_path.read_text())
+    assert saved["projects"][-1]["always_include"] is False
+
+
 def test_delete_project(client, mock_profile_path):
     import json
     response = client.delete("/profile/projects/0")
@@ -118,15 +178,25 @@ def test_delete_project(client, mock_profile_path):
     assert len(saved["projects"]) == 0
 
 
-def test_generate_page_loads(client, mock_profile_path):
+def test_generate_page_loads(client, mock_profile_path, tmp_path, monkeypatch):
+    # Isolate from the developer's real ~/.codex so the Codex model list is the
+    # deterministic fallback rather than whatever their cache happens to hold.
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.delenv("CODEX_HOME", raising=False)
     response = client.get("/generate")
     assert response.status_code == 200
     assert "Job Posting" in response.text
     assert "Generate Resume" in response.text
+    assert 'name="provider"' in response.text
     assert 'name="model"' in response.text
-    assert '<option value="sonnet" selected>' in response.text
+    assert '<option value="claude" selected>Claude Code</option>' in response.text
+    assert '<option value="codex">Codex</option>' in response.text
+    assert '<option value="sonnet" selected>Sonnet</option>' in response.text
     assert '<option value="opus">' in response.text
     assert '<option value="haiku">' in response.text
+    # Codex options are rendered client-side, so its models appear only in the
+    # embedded provider data, not as server-rendered <option> tags.
+    assert '"gpt-5.5": "GPT-5.5"' in response.text
 
 
 def test_generate_page_shows_templates(client, mock_profile_path, tmp_path, monkeypatch):
@@ -167,11 +237,29 @@ def test_generate_rejects_invalid_model(client, mock_profile_path, tmp_path, mon
     response = client.post("/generate", data={
         "job_description": "Some job",
         "template_id": "classic",
+        "provider": "claude",
         "model": "gpt-5",
     })
     assert response.status_code == 200
     assert "gpt-5" in response.text
-    assert "not" in response.text.lower()
+    assert "not valid" in response.text.lower()
+
+
+def test_generate_rejects_invalid_provider(client, mock_profile_path, tmp_path, monkeypatch):
+    import app.main as main_module
+    fake_templates = tmp_path / "resume_templates"
+    fake_templates.mkdir()
+    (fake_templates / "classic.html").write_text("<!-- STATIC -->")
+    monkeypatch.setattr(main_module, "RESUME_TEMPLATES_DIR", fake_templates)
+
+    response = client.post("/generate", data={
+        "job_description": "Some job",
+        "template_id": "classic",
+        "provider": "cursor",
+        "model": "sonnet",
+    })
+    assert response.status_code == 200
+    assert "Provider &#39;cursor&#39; not recognized." in response.text
 
 
 def test_generate_passes_valid_model_to_generator(client, mock_profile_path, tmp_path, monkeypatch):
@@ -192,10 +280,38 @@ def test_generate_passes_valid_model_to_generator(client, mock_profile_path, tmp
         client.post("/generate", data={
             "job_description": "Some job",
             "template_id": "classic",
+            "provider": "claude",
             "model": "opus",
         })
 
-    assert mock_generate.call_args[0][3] == "opus"
+    assert mock_generate.call_args.kwargs["provider"] == "claude"
+    assert mock_generate.call_args.kwargs["model"] == "opus"
+
+
+def test_generate_passes_codex_provider_to_generator(client, mock_profile_path, tmp_path, monkeypatch):
+    import app.main as main_module
+    from unittest.mock import patch
+
+    fake_templates = tmp_path / "resume_templates"
+    fake_templates.mkdir()
+    (fake_templates / "classic.html").write_text("<!-- STATIC -->")
+    monkeypatch.setattr(main_module, "RESUME_TEMPLATES_DIR", fake_templates)
+    monkeypatch.setattr(main_module, "OUTPUT_DIR", tmp_path / "output")
+    (tmp_path / "output").mkdir()
+
+    with patch(
+        "app.main.generate_resume",
+        return_value=("<!DOCTYPE html><html><body>x</body></html>", ""),
+    ) as mock_generate, patch("app.main.render_pdf", return_value=False):
+        client.post("/generate", data={
+            "job_description": "Some job",
+            "template_id": "classic",
+            "provider": "codex",
+            "model": "gpt-5.5",
+        })
+
+    assert mock_generate.call_args.kwargs["provider"] == "codex"
+    assert mock_generate.call_args.kwargs["model"] == "gpt-5.5"
 
 
 def test_view_education(client, mock_profile_path):
@@ -281,6 +397,23 @@ def test_update_experience(client, mock_profile_path):
     ]
 
 
+def test_update_experience_toggles_always_include(client, mock_profile_path):
+    import json
+    response = client.put("/profile/experience/0", data={
+        "company": "Pinned Corp",
+        "title": "Engineer",
+        "start": "2019",
+        "end": "Present",
+        "location": "Remote",
+        "accomplishments_raw": "",
+        "always_include": "on",
+    })
+    assert response.status_code == 200
+    saved = json.loads(mock_profile_path.read_text())
+    assert saved["experience"][0]["always_include"] is True
+    assert "★ Always included" in response.text
+
+
 def test_update_experience_not_found(client, mock_profile_path):
     response = client.put("/profile/experience/99", data={
         "company": "X", "title": "Y", "start": "", "end": "",
@@ -323,6 +456,23 @@ def test_update_project(client, mock_profile_path):
     assert saved["projects"][0]["name"] == "Updated Tool"
     assert saved["projects"][0]["tech_stack"] == ["Python", "Click", "Rich"]
     assert saved["projects"][0]["highlights"] == ["1000 stars", "Featured on HN"]
+    assert saved["projects"][0]["always_include"] is False
+
+
+def test_update_project_toggles_always_include(client, mock_profile_path):
+    import json
+    response = client.put("/profile/projects/0", data={
+        "name": "Pinned Tool",
+        "description": "",
+        "tech_stack_raw": "",
+        "highlights_raw": "",
+        "url": "",
+        "always_include": "on",
+    })
+    assert response.status_code == 200
+    saved = json.loads(mock_profile_path.read_text())
+    assert saved["projects"][0]["always_include"] is True
+    assert "★ Always included" in response.text
 
 
 def test_update_project_not_found(client, mock_profile_path):

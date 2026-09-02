@@ -1,6 +1,7 @@
 <div class="entry">
   <div class="entry-main">
     <strong>{{ proj.name }}</strong>
+    {% if proj.always_include %}<span class="badge-always">★ Always included</span>{% endif %}
     {% if proj.url %}<a href="{{ proj.url }}" target="_blank" class="entry-url">{{ proj.url }}</a>{% endif %}
   </div>
   {% if proj.description %}<p class="entry-details">{{ proj.description }}</p>{% endif %}

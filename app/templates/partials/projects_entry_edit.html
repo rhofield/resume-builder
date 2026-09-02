@@ -22,6 +22,10 @@
       <small style="font-weight:400;color:#888"> — one per line</small>
       <textarea name="highlights_raw" rows="3">{{ proj.highlights|join("\n") }}</textarea>
     </label>
+    <label class="checkbox-label">
+      <input type="checkbox" name="always_include" {% if proj.always_include %}checked{% endif %}>
+      Always include this project in generated resumes
+    </label>
     <div style="margin-top:8px">
       <button type="submit" class="btn btn-sm btn-primary">Save</button>
       <button type="button" class="btn btn-sm"

@@ -7,3 +7,5 @@ output/*.pdf
 output/*.html
 .superpowers/
 .claude/
+.codex-home/
+.codex-user-home/
